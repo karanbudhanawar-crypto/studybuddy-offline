@@ -1,0 +1,11 @@
+{
+  "name":"StudyBuddy — AI Student Assistant",
+  "short_name":"StudyBuddy",
+  "description":"A student assistant using an AI model running on your device.",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#0b1020",
+  "theme_color":"#101629",
+  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
