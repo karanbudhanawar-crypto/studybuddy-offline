@@ -82,8 +82,9 @@ render()})();
 function showBuiltinCalculator(){
  const answer='Here is a built-in calculator written by StudyBuddy. This fixed example does not depend on the local AI model. Click Preview to use it, or Copy code to save it.\n\n```html\n'+BUILTIN_CALCULATOR_CODE+'\n```';
  reset();
- messages.push({role:'assistant',content:answer});
+ messages.push({role:'assistant',content:answer,displayContent:answer});
  addMessage('assistant',answer);
+ persistConversation();
  status('Built-in demo · ready','ok');
 }
 let endpoint=localStorage.getItem('studybuddy.endpoint')||DEFAULT_ENDPOINT;
@@ -154,13 +155,16 @@ function initializeChatHistory(){
  if(chosen)loadConversation(chosen.id);
  else{activeChatId=null;messages=[];renderHistory()}
 }
+function renderCurrentMessages(){
+ $('chatLog').replaceChildren();
+ if(messages.length){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');messages.forEach(m=>addMessage(m.role,m.displayContent||m.content))}
+ else{$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden')}
+}
 function loadConversation(id){
  const c=conversations.find(item=>item.id===id);if(!c)return;
  activeChatId=c.id;messages=(c.messages||[]).map(m=>({role:m.role,content:m.content||'',displayContent:m.displayContent||m.content||''}));
  selectedMode=c.mode||'general';$('modeSelect').value=selectedMode;localStorage.setItem('studybuddy.activeChat',activeChatId);localStorage.setItem('studybuddy.mode',selectedMode);
- pendingFiles=[];updateFileLabel();$('chatLog').replaceChildren();
- if(messages.length){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');messages.forEach(m=>addMessage(m.role,m.displayContent||m.content))}else{$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden')}
- renderHistory();$('prompt').focus();
+ pendingFiles=[];updateFileLabel();renderCurrentMessages();renderHistory();$('prompt').focus();
 }
 function exportConversation(){
  const c=currentChat();if(!messages.length){toast('This chat is empty.');return}
@@ -284,16 +288,92 @@ function showCodePreview(panel,sample,related){
  if(sample.language==='python'||sample.language==='py'){const command=document.createElement('code');command.textContent='python main.py';note.append(command);}
  panel.append(note);
 }
-function addMessage(role,content){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');const a=document.createElement('article');a.className='message';const av=document.createElement('div');av.className='avatar';av.textContent=role==='user'?'Y':'✦';const b=document.createElement('div');b.className='messagebody';const h=document.createElement('div');h.className='messagehead';const n=document.createElement('span');n.textContent=role==='user'?'You':'StudyBuddy';const time=document.createElement('time');time.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});h.append(n,time);const text=document.createElement('div');text.className='messagecontent';const groupId='study-message-'+(++messageCounter);text.innerHTML=markdown(content,groupId);b.append(h,text);a.append(av,b);$('chatLog').append(a);$('chatLog').scrollTop=$('chatLog').scrollHeight}
+function addMessage(role,content){
+ $('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');
+ const a=document.createElement('article');a.className='message';a.dataset.role=role;
+ const av=document.createElement('div');av.className='avatar';av.textContent=role==='user'?'Y':'✦';
+ const b=document.createElement('div');b.className='messagebody';
+ const h=document.createElement('div');h.className='messagehead';
+ const n=document.createElement('span');n.textContent=role==='user'?'You':'StudyBuddy';
+ const time=document.createElement('time');time.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+ h.append(n,time);
+ const actions=document.createElement('span');actions.className='message-actions';
+ const copy=document.createElement('button');copy.type='button';copy.className='message-action';copy.dataset.messageAction='copy';copy.textContent='Copy';copy.title='Copy this message';actions.append(copy);
+ if(role==='assistant'){const retry=document.createElement('button');retry.type='button';retry.className='message-action';retry.dataset.messageAction='retry';retry.textContent='Regenerate last';retry.title='Ask the local model to generate the last answer again';actions.append(retry)}
+ h.append(actions);
+ const text=document.createElement('div');text.className='messagecontent';
+ const groupId='study-message-'+(++messageCounter);text.innerHTML=markdown(content,groupId);
+ b.append(h,text);a.append(av,b);$('chatLog').append(a);$('chatLog').scrollTop=$('chatLog').scrollHeight;
+}
 async function check(){status('Checking local AI…');try{const r=await fetchTimed(endpointNow()+'/api/tags',{},6000);if(!r.ok)throw Error('Ollama HTTP '+r.status);const d=await r.json();const models=(d.models||[]).map(x=>x.name).filter(Boolean);$('model').replaceChildren();(models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});if(models.includes(model))$('model').value=model;else if(models.length){model=models[0];$('model').value=model}status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);return models.length>0}catch(e){status('Local AI not connected','bad');toast('Connection failed: '+(e?.message||'browser blocked localhost access')+'. Check the browser Localhost/Local network permission and Ollama origins.');return false}}
 function stopGeneration(){if(!busy||!requestController)return;stoppedByUser=true;status('Stopping generation…');$('sendBtn').disabled=true;requestController.abort()}
-async function send(text){text=text.trim();if(!text||busy)return;requestController=new AbortController();stoppedByUser=false;busy=true;$('sendBtn').disabled=false;$('sendBtn').textContent='■';$('sendBtn').setAttribute('aria-label','Stop generation');$('prompt').disabled=true;addMessage('user',text);messages.push({role:'user',content:text});if(messages.length>18)messages=messages.slice(-18);$('thinking').classList.remove('hidden');status('Generating locally…','ok');try{const r=await fetchTimed(endpointNow()+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:requestController.signal,body:JSON.stringify({model:$('model').value||model||DEFAULT_MODEL,messages:[{role:'system',content:SYSTEM},...messages],stream:false,options:{temperature:.45,num_ctx:2048,num_predict:768}})},300000);if(!r.ok)throw Error('Ollama HTTP '+r.status+' '+(await r.text()).slice(0,250));const d=await r.json(),answer=d?.message?.content?.trim();if(!answer)throw Error('Empty answer from model');messages.push({role:'assistant',content:answer});addMessage('assistant',answer);status('Ready · generated locally','ok')}catch(e){messages.pop();if(e.name==='AbortError'&&stoppedByUser){addMessage('assistant','Generation stopped. Try a shorter prompt or ask for one file at a time.');status('Generation stopped');return}let extra=e.name==='AbortError'?'Request timed out after five minutes.':e.message||'Request failed.';extra+='\n\nCheck that Ollama is running and the model is installed. A hosted HTTPS page may also need local-network permission and the exact Render origin allowed in Ollama.';addMessage('assistant','I could not reach your local AI model.\n\n'+extra);status('Connection problem','bad')}finally{$('thinking').classList.add('hidden');busy=false;requestController=null;stoppedByUser=false;$('sendBtn').disabled=false;$('sendBtn').textContent='↑';$('sendBtn').setAttribute('aria-label','Send');$('prompt').disabled=false;$('prompt').focus()}}
-function reset(){messages=[];$('chatLog').replaceChildren();$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden');$('prompt').focus()}
+async function send(text,options={}){
+ const requestedText=String(text||'').trim();
+ if((!requestedText&&options.modelContent===undefined)||busy)return;
+ const files=options.modelContent!==undefined?[]:pendingFiles.slice();
+ if(files.length)pendingFiles=[];
+ updateFileLabel();
+ const displayText=options.displayContent!==undefined?options.displayContent:(requestedText+(files.length?'\n\n📎 Attached: '+files.map(f=>f.name).join(', '):''));
+ let modelContent=options.modelContent!==undefined?options.modelContent:requestedText;
+ if(files.length&&options.modelContent===undefined){
+  let remaining=24000,parts=[];
+  files.forEach(file=>{if(remaining<=0)return;const excerpt=file.content.slice(0,remaining);remaining-=excerpt.length;parts.push('\n\n[Attached text/code file: '+file.name+(file.wasTruncated||excerpt.length<file.content.length?' — excerpt may be incomplete':'')+']\n'+excerpt)});
+  modelContent+=parts.join('');
+ }
+ requestController=new AbortController();stoppedByUser=false;busy=true;
+ $('sendBtn').disabled=false;$('sendBtn').textContent='■';$('sendBtn').setAttribute('aria-label','Stop generation');$('prompt').disabled=true;
+ const userEntry={role:'user',content:modelContent,displayContent:displayText};
+ messages.push(userEntry);addMessage('user',displayText);persistConversation();
+ $('thinking').classList.remove('hidden');status('Generating locally…','ok');
+ try{
+  const history=messages.slice(-18).map(m=>({role:m.role,content:m.content}));
+  const r=await fetchTimed(endpointNow()+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:requestController.signal,body:JSON.stringify({model:$('model').value||model||DEFAULT_MODEL,messages:[{role:'system',content:systemPromptForMode()},...history],stream:false,options:{temperature:selectedMode==='coding'?.25:.45,num_ctx:2048,num_predict:768}})},300000);
+  if(!r.ok)throw Error('Ollama HTTP '+r.status+' '+(await r.text()).slice(0,250));
+  const d=await r.json(),answer=d?.message?.content?.trim();
+  if(!answer)throw Error('Empty answer from model');
+  messages.push({role:'assistant',content:answer,displayContent:answer});addMessage('assistant',answer);status('Ready · generated locally','ok');
+ }catch(e){
+  if(e.name==='AbortError'&&stoppedByUser){
+   const stopped='Generation stopped. Try a shorter prompt or ask for one file at a time.';
+   messages.push({role:'assistant',content:stopped,displayContent:stopped});addMessage('assistant',stopped);status('Generation stopped');
+  }else{
+   let extra=e.name==='AbortError'?'Request timed out after five minutes.':e.message||'Request failed.';
+   extra+='\n\nCheck that Ollama is running and the model is installed. A hosted HTTPS page may also need local-network permission and the exact Render origin allowed in Ollama.';
+   const errorText='I could not complete the local AI request.\n\n'+extra;
+   messages.push({role:'assistant',content:errorText,displayContent:errorText});addMessage('assistant',errorText);status('Connection problem','bad');
+  }
+ }finally{
+  persistConversation();$('thinking').classList.add('hidden');busy=false;requestController=null;stoppedByUser=false;
+  $('sendBtn').disabled=false;$('sendBtn').textContent='↑';$('sendBtn').setAttribute('aria-label','Send');$('prompt').disabled=false;$('prompt').focus();
+ }
+}
+function reset(){
+ if(busy){toast('Stop the current response before starting another chat.');return}
+ messages=[];activeChatId=makeChatId();pendingFiles=[];updateFileLabel();
+ $('chatLog').replaceChildren();$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden');
+ persistConversation();$('prompt').focus();
+}
+function retryLastAnswer(){
+ if(busy){toast('Wait for the current response to finish.');return}
+ let index=-1;for(let i=messages.length-1;i>=0;i--){if(messages[i].role==='user'){index=i;break}}
+ if(index<0){toast('There is no user question to regenerate.');return}
+ const previous=messages[index];const shown=previous.displayContent||previous.content;
+ messages=messages.slice(0,index);renderCurrentMessages();persistConversation();
+ void send(shown,{modelContent:previous.content,displayContent:shown});
+}
 function openSettings(){ $('endpoint').value=endpoint;$('settingsDialog').classList.remove('hidden');}
 $('chatForm').addEventListener('submit',e=>{e.preventDefault();if(busy){stopGeneration();return}const v=$('prompt').value;$('prompt').value='';$('prompt').style.height='auto';void send(v)});
 $('prompt').addEventListener('input',()=>{$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,180)+'px'});
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('chatForm').requestSubmit()}});
 document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>{$('prompt').value=b.dataset.prompt||'';$('prompt').focus();$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,180)+'px'}));
+$('chatLog').addEventListener('click',async e=>{
+ const btn=e.target.closest('button[data-message-action]');if(!btn)return;
+ if(btn.dataset.messageAction==='copy'){
+  const body=btn.closest('.message')?.querySelector('.messagecontent');
+  try{if(body)await copyText(body.innerText);toast('Message copied.')}catch(err){toast('Copy failed; select the message and copy it manually.')}
+ }
+ if(btn.dataset.messageAction==='retry')retryLastAnswer();
+});
 $('chatLog').addEventListener('click',async e=>{
  const btn=e.target.closest('button[data-code-action]');
  if(!btn)return;
@@ -318,11 +398,43 @@ $('chatLog').addEventListener('click',async e=>{
   showCodePreview(panel,sample,related);panel.classList.remove('hidden');btn.setAttribute('aria-expanded','true');btn.textContent='Hide preview';
  }
 });
+$('chatHistory').addEventListener('click',e=>{
+ const btn=e.target.closest('button[data-history-action]');if(!btn)return;
+ const row=btn.closest('[data-chat-id]');const id=row?.dataset.chatId;if(!id)return;
+ const item=conversations.find(c=>c.id===id);if(!item)return;
+ if(btn.dataset.historyAction==='open'){if(busy){toast('Stop the current response before switching chats.');return}loadConversation(id);return}
+ if(btn.dataset.historyAction==='rename'){
+  const name=window.prompt('Rename this chat',item.title||'New conversation');
+  if(name===null)return;const clean=name.trim().slice(0,70);if(!clean){toast('Chat name cannot be empty.');return}
+  item.title=clean;item.customTitle=true;item.updatedAt=Date.now();persistConversationList();return;
+ }
+ if(btn.dataset.historyAction==='delete'){
+  if(!window.confirm('Delete this saved chat? This cannot be undone.'))return;
+  conversations=conversations.filter(c=>c.id!==id);
+  try{localStorage.setItem('studybuddy.chats',JSON.stringify(conversations))}catch(e){}
+  if(activeChatId===id){messages=[];activeChatId=null;reset()}else renderHistory();
+ }
+});
+function persistConversationList(){
+ try{localStorage.setItem('studybuddy.chats',JSON.stringify(conversations))}catch(e){toast('Could not save chat history.')}
+ renderHistory();
+}
 $('calculatorDemoBtn').addEventListener('click',showBuiltinCalculator);
 $('calculatorDemoSidebar').addEventListener('click',showBuiltinCalculator);
 $('newBtn').addEventListener('click',reset);$('clearBtn').addEventListener('click',reset);$('settingsBtn').addEventListener('click',openSettings);$('settingsBtnMobile').addEventListener('click',openSettings);$('closeBtn').addEventListener('click',()=>$('settingsDialog').classList.add('hidden'));
+$('modeSelect').value=selectedMode;
+$('modeSelect').addEventListener('change',()=>{
+ selectedMode=$('modeSelect').value||'general';localStorage.setItem('studybuddy.mode',selectedMode);
+ if(currentChat()){currentChat().mode=selectedMode;persistConversation()}
+});
+$('attachBtn').addEventListener('click',()=>$('fileInput').click());
+$('fileInput').addEventListener('change',async e=>{await addTextFiles(e.target.files);e.target.value=''});
+$('clearFilesBtn').addEventListener('click',()=>{pendingFiles=[];updateFileLabel();toast('Attachments cleared.')});
+$('exportBtn').addEventListener('click',exportConversation);
+$('chatHistory').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('button[data-history-action="open"]'))e.target.click()});
 $('checkBtn').addEventListener('click',()=>{endpoint=endpointNow();void check().then(ok=>toast(ok?'Connection successful':'Connection failed. Check Ollama and browser permissions.'))});
 $('saveBtn').addEventListener('click',()=>{endpoint=endpointNow();model=$('model').value||DEFAULT_MODEL;localStorage.setItem('studybuddy.endpoint',endpoint);localStorage.setItem('studybuddy.model',model);$('settingsDialog').classList.add('hidden');void check();toast('Connection settings saved in this browser.')});
+initializeChatHistory();updateFileLabel();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 void check();
 })();
