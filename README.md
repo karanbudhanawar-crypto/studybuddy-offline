@@ -19,7 +19,7 @@ Render hosts the static interface, not the AI model. For AI replies, the device 
 1. Install Ollama: https://ollama.com/download/windows
 2. Open Command Prompt and download a small model: `ollama pull qwen2.5:1.5b-instruct`
 3. Start Ollama.
-4. Open StudyBuddy, select **Connection settings**, keep address `http://localhost:11434`, then click **Check models**.
+4. Open StudyBuddy, select **Connection settings**, keep address `http://127.0.0.1:11434`, then click **Check models**.
 5. If the browser blocks requests from the hosted Render website, configure Ollama's allowed origins to include only the exact site origin `https://studybuddy-offline.onrender.com`, then fully restart Ollama. Do not use `*` for allowed origins. Browser local-network/CORS behavior may vary by browser/version.
 
 ## Render deployment
@@ -32,7 +32,7 @@ Render hosts the static interface, not the AI model. For AI replies, the device 
 The site is automatically redeployed when new commits are pushed to `main`.
 
 ## Run locally
-From the project folder run `python -m http.server 8000`, then open http://localhost:8000. For local Ollama calls, use `http://localhost:11434` in Connection settings.
+From the project folder run `python -m http.server 8000`, then open http://localhost:8000. For local Ollama calls, use `http://127.0.0.1:11434` in Connection settings.
 
 ## Privacy
 Prompts are sent from your browser to the Ollama endpoint configured in the app. There is no server-side model or cloud database. Conversations remain in page memory for the current session; the chosen endpoint and model are stored in browser local storage.
