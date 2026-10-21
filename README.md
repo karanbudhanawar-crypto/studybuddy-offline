@@ -24,7 +24,10 @@ The **Advanced** mode is a custom local profile based on Qwen3 1.7B. It applies 
 4. Open StudyBuddy, hard-refresh with Ctrl+Shift+R, select **Advanced — StudyBuddy model** in the response-mode picker, then open **Connection settings → Check models** if needed.
 5. Confirm `studybuddy-advanced` is selected as the model. If it is not installed, Advanced instructions still work with the currently selected local model.
 
-The custom tag reuses Qwen3 1.7B weights and adds a StudyBuddy system prompt and runtime defaults; it does not download an Astra model or add new learned knowledge. Qwen3 1.7B is about 1.4 GB for the Q4_K_M model file; actual memory use is higher while it runs.
+The custom tag reuses Qwen3 1.7B weights and adds a StudyBuddy system prompt and runtime defaults; it does not download an Astra model or add new learned knowledge. Qwen3 1.7B is about 1.4 GB for the Q4_K_M model file; actual memory use is higher while it runs. This text model cannot interpret images.
+
+### Optional image understanding
+For offline image questions, you can separately install a vision model with `ollama pull gemma3:4b` (about 3.3 GB on disk) and select it under **Connection settings**. It may be too slow or memory-hungry on a low-RAM laptop, so this is optional. Image uploads only work with a vision-capable model.
 
 ## Run the standalone Python calculator
 The file `examples/python_calculator.py` is a complete Tkinter desktop calculator. With Python installed, run from the repository folder:
