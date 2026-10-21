@@ -9,8 +9,8 @@ echo   StudyBuddy Advanced - Local Ollama Model Setup
 echo ============================================================
 echo.
 echo This creates a custom Ollama model using your installed
-echo qwen2.5:1.5b-instruct model. No paid API is used.
-echo The weights are not Astra or a new frontier model; this adds
+echo qwen3:1.7b model. No paid API is used.
+echo The weights are not Astra or a frontier model; this adds
 echo a StudyBuddy-specific system prompt and conservative settings.
 echo.
 
