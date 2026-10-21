@@ -43,11 +43,11 @@
 <footer class="composerwrap">
 <div class="composer-tools">
 <label for="modeSelect" class="sub">Mode</label><select id="modeSelect" class="mode-select" aria-label="Assistant mode" title="Advanced uses the custom studybuddy-advanced model when installed."><option value="general">General assistant</option><option value="advanced">Advanced — StudyBuddy model</option><option value="coding">Coding & debugging</option><option value="homework">Homework tutor</option><option value="exam">Exam answer</option><option value="advice">Advice & suggestions</option><option value="creative">Creative writing</option></select>
-<button type="button" class="tool-btn" id="attachBtn">📎 Attach text/code</button><input type="file" id="fileInput" class="file-hidden" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.html,.htm,.css,.json,.csv,.xml,.sql,.java,.c,.cpp,.h,.hpp,.yml,.yaml,.log,.sh">
+<button type="button" class="tool-btn" id="attachBtn">📎 Attach text/code/images</button><input type="file" id="fileInput" class="file-hidden" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.html,.htm,.css,.json,.csv,.xml,.sql,.java,.c,.cpp,.h,.hpp,.yml,.yaml,.log,.sh,.png,.jpg,.jpeg,.webp">
 <button type="button" class="tool-btn" id="clearFilesBtn" hidden>Clear files</button><span class="file-list" id="fileList" aria-live="polite"></span>
 <button type="button" class="tool-btn" id="exportBtn">⇩ Export chat</button>
 </div>
-<form class="composer" id="chatForm"><textarea id="prompt" rows="1" placeholder="Ask a question or paste your code…" aria-label="Your message" required></textarea><button class="send" id="sendBtn" type="submit" aria-label="Send">↑</button></form><div class="foot"><span>◉ Local AI · No paid AI API key required</span><span>AI can make mistakes. Verify important answers.</span></div></footer>
+<form class="composer" id="chatForm"><textarea id="prompt" rows="1" placeholder="Ask a question or paste your code…" aria-label="Your message"></textarea><button class="send" id="sendBtn" type="submit" aria-label="Send">↑</button></form><div class="foot"><span>◉ Local AI · No paid AI API key required</span><span>AI can make mistakes. Verify important answers.</span></div></footer>
 </main></div>
 <div class="dialog hidden" id="settingsDialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="dialogbox"><h2 id="settingsTitle">Local AI connection</h2><p>Connect to Ollama running on the same device as this browser. First install Ollama and download a model.</p><label class="field">Ollama address<input id="endpoint" type="url" value="http://127.0.0.1:11434" spellcheck="false"></label><label class="field">Model<select id="model"><option value="qwen2.5:1.5b-instruct">qwen2.5:1.5b-instruct</option></select></label><p>After opening the Render website, Ollama may need its allowed browser origins configured to this exact website URL. Never set allowed origins to <code>*</code> for convenience.</p><div class="dlg-actions"><button class="secondary" id="checkBtn">Check models</button><button class="secondary" id="closeBtn">Cancel</button><button class="primary" id="saveBtn">Save settings</button></div></div></div>
 <script>
@@ -341,7 +341,7 @@ function showBuiltinPythonCalculator(){
 let endpoint=localStorage.getItem('studybuddy.endpoint')||DEFAULT_ENDPOINT;
 if(endpoint==='http://localhost:11434')endpoint=DEFAULT_ENDPOINT;
 let model=localStorage.getItem('studybuddy.model')||DEFAULT_MODEL;
-let messages=[],busy=false,requestController=null,stoppedByUser=false,activeChatId=null,conversations=[],pendingFiles=[],selectedMode=localStorage.getItem('studybuddy.mode')||'general';
+let messages=[],busy=false,requestController=null,stoppedByUser=false,activeChatId=null,conversations=[],pendingFiles=[],pendingImages=[],selectedMode=localStorage.getItem('studybuddy.mode')||'general';
 $('endpoint').value=endpoint;
 function toast(s){let t=document.querySelector('.toast');if(t)t.remove();t=document.createElement('div');t.className='toast';t.textContent=s;document.body.append(t);setTimeout(()=>t.remove(),5500)}
 function status(s,state=''){ $('statusText').textContent=s; $('statusDot').className='dot '+state; $('sideDot').className='dot '+state; }
@@ -394,11 +394,12 @@ function systemPromptForMode(){
  return SYSTEM+'\n\nResponse mode ('+mode+'): '+instructions+extra+'\n\nDo not claim to have web access, image generation, file execution, or other tools unless available in this app. This is a local text model; if asked for live facts, explain that you cannot browse from here.';
 }
 function updateFileLabel(){
- const names=pendingFiles.map(f=>f.name);
+ const names=[...pendingFiles.map(f=>f.name),...pendingImages.map(f=>f.name)];
  $('fileList').textContent=names.length?names.join(', '):'';
  $('fileList').title=names.join(', ');
  $('clearFilesBtn').hidden=!names.length;
 }
+
 function initializeChatHistory(){
  conversations=safeReadChats();
  selectedMode=localStorage.getItem('studybuddy.mode')||'general';
@@ -418,7 +419,7 @@ function loadConversation(id){
  const c=conversations.find(item=>item.id===id);if(!c)return;
  activeChatId=c.id;messages=(c.messages||[]).map(m=>({role:m.role,content:m.content||'',displayContent:m.displayContent||m.content||''}));
  selectedMode=c.mode||'general';$('modeSelect').value=selectedMode;localStorage.setItem('studybuddy.activeChat',activeChatId);localStorage.setItem('studybuddy.mode',selectedMode);
- pendingFiles=[];updateFileLabel();renderCurrentMessages();renderHistory();$('prompt').focus();
+ pendingFiles=[];pendingImages=[];updateFileLabel();renderCurrentMessages();renderHistory();$('prompt').focus();
 }
 function exportConversation(){
  const c=currentChat();if(!messages.length){toast('This chat is empty.');return}
@@ -431,11 +432,36 @@ function copyText(text){
  if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text);
  return new Promise((resolve,reject)=>{const box=document.createElement('textarea');box.value=text;box.style.position='fixed';box.style.opacity='0';document.body.append(box);box.select();const ok=document.execCommand('copy');box.remove();ok?resolve():reject(new Error('Clipboard unavailable'))});
 }
+function readImageAsBase64(file){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>{const dataUrl=String(reader.result||'');const comma=dataUrl.indexOf(',');if(comma<0)return reject(new Error('Could not decode image'));resolve(dataUrl.slice(comma+1))};
+  reader.onerror=()=>reject(new Error('Could not read image'));
+  reader.readAsDataURL(file);
+ });
+}
+function modelSupportsVision(name){
+ return /gemma3:(4b|12b|27b)|qwen2\.5vl|qwen2-vl|qwen3-vl|llava|moondream|llama3\.2-vision|minicpm-v/i.test(name||'');
+}
 async function addTextFiles(fileList){
  let total=pendingFiles.reduce((n,f)=>n+f.content.length,0);
  const allowed=/\.(txt|md|py|js|ts|jsx|tsx|html|htm|css|json|csv|xml|sql|java|c|cpp|h|hpp|yml|yaml|log|sh)$/i;
+ const imageTypes=new Set(['image/png','image/jpeg','image/webp']);
  for(const file of Array.from(fileList||[])){
-  if(!allowed.test(file.name)){toast('Unsupported file type: '+file.name+'. Attach text or source-code files.');continue}
+  if(imageTypes.has(file.type)||/\.(png|jpe?g|webp)$/i.test(file.name)){
+   const activeModel=$('model').value||model||DEFAULT_MODEL;
+   if(!modelSupportsVision(activeModel)){
+    toast('The selected model is text-only. For local image understanding, install a vision model with: ollama pull gemma3:4b, then select it in Connection settings. It is about 3.3 GB and may be too heavy for a low-RAM laptop.');
+    continue;
+   }
+   if(!imageTypes.has(file.type)){toast('Use a PNG, JPG, or WEBP image.');continue}
+   if(file.size>4*1024*1024){toast(file.name+' is over 4 MB; choose a smaller image.');continue}
+   if(pendingImages.length>=3){toast('Attach up to three images at once.');break}
+   try{pendingImages.push({name:file.name,mime:file.type,base64:await readImageAsBase64(file)});}
+   catch(e){toast('Could not read '+file.name+'.')}
+   continue;
+  }
+  if(!allowed.test(file.name)){toast('Unsupported file type: '+file.name+'. Attach text/code or PNG/JPG/WEBP images.');continue}
   if(file.size>100000){toast(file.name+' is larger than 100 KB and was skipped.');continue}
   if(pendingFiles.length>=4){toast('Attach up to four text/code files at a time.');break}
   try{
@@ -448,6 +474,7 @@ async function addTextFiles(fileList){
  }
  updateFileLabel();
 }
+
 function endpointNow(){return ($('endpoint').value||endpoint||DEFAULT_ENDPOINT).trim().replace(/\/+$/,'')}
 async function fetchTimed(url,opts={},ms=8000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms),external=opts.signal,abort=()=>c.abort();if(external){if(external.aborted)c.abort();else external.addEventListener('abort',abort,{once:true})}try{return await fetch(url,{...opts,signal:c.signal,mode:'cors',targetAddressSpace:'loopback'})}finally{clearTimeout(t);if(external)external.removeEventListener('abort',abort)}}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -586,25 +613,39 @@ async function check(){
 function stopGeneration(){if(!busy||!requestController)return;stoppedByUser=true;status('Stopping generation…');$('sendBtn').disabled=true;requestController.abort()}
 async function send(text,options={}){
  const requestedText=String(text||'').trim();
- if((!requestedText&&options.modelContent===undefined)||busy)return;
  const files=options.modelContent!==undefined?[]:pendingFiles.slice();
+ const images=options.modelContent!==undefined?[]:pendingImages.slice();
+ if((!requestedText&&options.modelContent===undefined)&&!files.length&&!images.length)return;
+ const activeModel=$('model').value||model||DEFAULT_MODEL;
+ if(images.length&&!modelSupportsVision(activeModel)){
+  $('prompt').value=requestedText;
+  toast('Image analysis requires a vision-capable local model. Install a model such as Gemma 3 4B with: ollama pull gemma3:4b, then select it in Connection settings. This may be slow or memory-heavy on your laptop.');
+  return;
+ }
  if(files.length)pendingFiles=[];
+ if(images.length)pendingImages=[];
  updateFileLabel();
- const displayText=options.displayContent!==undefined?options.displayContent:(requestedText+(files.length?'\n\n📎 Attached: '+files.map(f=>f.name).join(', '):''));
- let modelContent=options.modelContent!==undefined?options.modelContent:requestedText;
+ const attachmentNames=[...files.map(f=>f.name),...images.map(f=>f.name)];
+ const displayText=options.displayContent!==undefined?options.displayContent:
+  (requestedText+(attachmentNames.length?'\n\n📎 Attached: '+attachmentNames.join(', '):''));
+ let modelContent=options.modelContent!==undefined?options.modelContent:(requestedText||(images.length?'Please describe the attached image(s), identify important details, and transcribe visible text if possible.':''));
  if(files.length&&options.modelContent===undefined){
   let remaining=24000,parts=[];
   files.forEach(file=>{if(remaining<=0)return;const excerpt=file.content.slice(0,remaining);remaining-=excerpt.length;parts.push('\n\n[Attached text/code file: '+file.name+(file.wasTruncated||excerpt.length<file.content.length?' — excerpt may be incomplete':'')+']\n'+excerpt)});
   modelContent+=parts.join('');
  }
+ if(images.length&&options.modelContent===undefined){
+  modelContent+='\n\nPlease inspect the attached image(s): '+images.map(i=>i.name).join(', ')+'. Base your answer on visible content and say when details are unclear.';
+ }
  requestController=new AbortController();stoppedByUser=false;busy=true;
  $('sendBtn').disabled=false;$('sendBtn').textContent='■';$('sendBtn').setAttribute('aria-label','Stop generation');$('prompt').disabled=true;
  const userEntry={role:'user',content:modelContent,displayContent:displayText};
+ if(images.length)userEntry.images=images.map(i=>i.base64);
  messages.push(userEntry);addMessage('user',displayText);persistConversation();
  $('thinking').classList.remove('hidden');status('Generating locally…','ok');
  try{
-  const history=messages.slice(-18).map(m=>({role:m.role,content:m.content}));
-  const r=await fetchTimed(endpointNow()+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:requestController.signal,body:JSON.stringify({model:$('model').value||model||DEFAULT_MODEL,messages:[{role:'system',content:systemPromptForMode()},...history],stream:false,options:{temperature:selectedMode==='coding'?.25:.45,num_ctx:2048,num_predict:768}})},300000);
+  const history=messages.slice(-18).map(m=>m.images?.length?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content});
+  const r=await fetchTimed(endpointNow()+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:requestController.signal,body:JSON.stringify({model:activeModel,messages:[{role:'system',content:systemPromptForMode()},...history],stream:false,options:{temperature:selectedMode==='coding'||selectedMode==='advanced'?.25:.45,num_ctx:2048,num_predict:selectedMode==='advanced'?1024:768}})},300000);
   if(!r.ok)throw Error('Ollama HTTP '+r.status+' '+(await r.text()).slice(0,250));
   const d=await r.json(),answer=d?.message?.content?.trim();
   if(!answer)throw Error('Empty answer from model');
@@ -624,9 +665,10 @@ async function send(text,options={}){
   $('sendBtn').disabled=false;$('sendBtn').textContent='↑';$('sendBtn').setAttribute('aria-label','Send');$('prompt').disabled=false;$('prompt').focus();
  }
 }
+
 function reset(){
  if(busy){toast('Stop the current response before starting another chat.');return}
- messages=[];activeChatId=makeChatId();pendingFiles=[];updateFileLabel();
+ messages=[];activeChatId=makeChatId();pendingFiles=[];pendingImages=[];updateFileLabel();
  $('chatLog').replaceChildren();$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden');
  persistConversation();$('prompt').focus();
 }
@@ -723,7 +765,7 @@ $('modeSelect').addEventListener('change',()=>{
 });
 $('attachBtn').addEventListener('click',()=>$('fileInput').click());
 $('fileInput').addEventListener('change',async e=>{await addTextFiles(e.target.files);e.target.value=''});
-$('clearFilesBtn').addEventListener('click',()=>{pendingFiles=[];updateFileLabel();toast('Attachments cleared.')});
+$('clearFilesBtn').addEventListener('click',()=>{pendingFiles=[];pendingImages=[];updateFileLabel();toast('Attachments cleared.')});
 $('exportBtn').addEventListener('click',exportConversation);
 $('chatHistory').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('button[data-history-action="open"]'))e.target.click()});
 $('checkBtn').addEventListener('click',()=>{endpoint=endpointNow();void check().then(ok=>toast(ok?'Connection successful':'Connection failed. Check Ollama and browser permissions.'))});
