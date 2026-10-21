@@ -93,6 +93,103 @@ let messages=[],busy=false,requestController=null,stoppedByUser=false,activeChat
 $('endpoint').value=endpoint;
 function toast(s){let t=document.querySelector('.toast');if(t)t.remove();t=document.createElement('div');t.className='toast';t.textContent=s;document.body.append(t);setTimeout(()=>t.remove(),5500)}
 function status(s,state=''){ $('statusText').textContent=s; $('statusDot').className='dot '+state; $('sideDot').className='dot '+state; }
+const MODE_INSTRUCTIONS={
+ general:"Answer clearly and directly. Use examples when useful. State uncertainty rather than guessing.",
+ coding:"Act as a patient senior programmer. Return complete runnable code when asked, include setup/run instructions, explain bugs, and avoid placeholders. Keep examples appropriate for a small local model.",
+ homework:"Teach the method step by step. Explain concepts in simple language, then give a structured answer the student can learn from.",
+ exam:"Write exam-ready answers with a definition, numbered important points, and a brief conclusion. Respect the requested marks or length.",
+ advice:"Give practical, balanced suggestions. Mention trade-offs and ask a clarifying question only when it is necessary.",
+ creative:"Help with writing, story ideas, outlines, and revisions. Match the requested style and keep the result original."
+};
+function makeChatId(){return 'chat-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)}
+function safeReadChats(){
+ try{const data=JSON.parse(localStorage.getItem('studybuddy.chats')||'[]');return Array.isArray(data)?data.filter(c=>c&&typeof c.id==='string'&&Array.isArray(c.messages)):[]}catch(e){return []}
+}
+function currentChat(){return conversations.find(c=>c.id===activeChatId)||null}
+function chatTitleFromMessages(items){
+ const first=items.find(m=>m.role==='user');
+ if(!first)return 'New conversation';
+ const text=(first.displayContent||first.content||'').replace(/\s+/g,' ').trim();
+ return text.length>38?text.slice(0,37)+'…':(text||'New conversation');
+}
+function persistConversation(){
+ if(!activeChatId)activeChatId=makeChatId();
+ let c=currentChat();
+ if(!c){c={id:activeChatId,title:'New conversation',customTitle:false,createdAt:Date.now(),updatedAt:Date.now(),messages:[],mode:selectedMode};conversations.unshift(c)}
+ c.messages=messages.map(m=>({role:m.role,content:m.content,displayContent:m.displayContent||m.content}));
+ c.mode=selectedMode;c.updatedAt=Date.now();
+ if(!c.customTitle)c.title=chatTitleFromMessages(c.messages);
+ conversations=[c,...conversations.filter(x=>x.id!==c.id)].slice(0,40);
+ try{localStorage.setItem('studybuddy.chats',JSON.stringify(conversations));localStorage.setItem('studybuddy.activeChat',activeChatId)}catch(e){toast('Browser storage is full. Export important chats to keep a backup.')}
+ renderHistory();
+}
+function renderHistory(){
+ const root=$('chatHistory');if(!root)return;root.replaceChildren();
+ if(!conversations.length){const empty=document.createElement('div');empty.className='history-empty';empty.textContent='Your saved chats will appear here.';root.append(empty);return}
+ conversations.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(c=>{
+  const row=document.createElement('div');row.className='history-item'+(c.id===activeChatId?' active':'');row.dataset.chatId=c.id;
+  const open=document.createElement('button');open.type='button';open.className='history-open';open.dataset.historyAction='open';open.title=c.title||'Chat';open.textContent=c.title||'New conversation';
+  const rename=document.createElement('button');rename.type='button';rename.className='history-tool';rename.dataset.historyAction='rename';rename.title='Rename chat';rename.setAttribute('aria-label','Rename chat');rename.textContent='✎';
+  const del=document.createElement('button');del.type='button';del.className='history-tool';del.dataset.historyAction='delete';del.title='Delete chat';del.setAttribute('aria-label','Delete chat');del.textContent='×';
+  row.append(open,rename,del);root.append(row);
+ });
+}
+function systemPromptForMode(){
+ const mode=$('modeSelect')?$('modeSelect').value:selectedMode;
+ return SYSTEM+'\n\nResponse mode ('+mode+'): '+(MODE_INSTRUCTIONS[mode]||MODE_INSTRUCTIONS.general)+'\n\nDo not claim to have web access, image generation, file execution, or other tools unless available in this app. This is a local text model; if asked for live facts, explain that you cannot browse from here.';
+}
+function updateFileLabel(){
+ const names=pendingFiles.map(f=>f.name);
+ $('fileList').textContent=names.length?names.join(', '):'';
+ $('fileList').title=names.join(', ');
+ $('clearFilesBtn').hidden=!names.length;
+}
+function initializeChatHistory(){
+ conversations=safeReadChats();
+ selectedMode=localStorage.getItem('studybuddy.mode')||'general';
+ if($('modeSelect'))$('modeSelect').value=selectedMode;
+ const remembered=localStorage.getItem('studybuddy.activeChat');
+ const chosen=conversations.find(c=>c.id===remembered)||conversations.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];
+ renderHistory();
+ if(chosen)loadConversation(chosen.id);
+ else{activeChatId=null;messages=[];renderHistory()}
+}
+function loadConversation(id){
+ const c=conversations.find(item=>item.id===id);if(!c)return;
+ activeChatId=c.id;messages=(c.messages||[]).map(m=>({role:m.role,content:m.content||'',displayContent:m.displayContent||m.content||''}));
+ selectedMode=c.mode||'general';$('modeSelect').value=selectedMode;localStorage.setItem('studybuddy.activeChat',activeChatId);localStorage.setItem('studybuddy.mode',selectedMode);
+ pendingFiles=[];updateFileLabel();$('chatLog').replaceChildren();
+ if(messages.length){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');messages.forEach(m=>addMessage(m.role,m.displayContent||m.content))}else{$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden')}
+ renderHistory();$('prompt').focus();
+}
+function exportConversation(){
+ const c=currentChat();if(!messages.length){toast('This chat is empty.');return}
+ const title=(c&&c.title)||chatTitleFromMessages(messages);
+ const body='# '+title+'\n\n'+messages.map(m=>(m.role==='user'?'## You':'## StudyBuddy')+'\n\n'+(m.displayContent||m.content||'')+'\n').join('\n');
+ const blob=new Blob([body],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=title.replace(/[^a-z0-9-_]+/gi,'-').replace(/^-|-$/g,'').slice(0,48)||'studybuddy-chat';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function copyText(text){
+ if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text);
+ return new Promise((resolve,reject)=>{const box=document.createElement('textarea');box.value=text;box.style.position='fixed';box.style.opacity='0';document.body.append(box);box.select();const ok=document.execCommand('copy');box.remove();ok?resolve():reject(new Error('Clipboard unavailable'))});
+}
+async function addTextFiles(fileList){
+ let total=pendingFiles.reduce((n,f)=>n+f.content.length,0);
+ const allowed=/\.(txt|md|py|js|ts|jsx|tsx|html|htm|css|json|csv|xml|sql|java|c|cpp|h|hpp|yml|yaml|log|sh)$/i;
+ for(const file of Array.from(fileList||[])){
+  if(!allowed.test(file.name)){toast('Unsupported file type: '+file.name+'. Attach text or source-code files.');continue}
+  if(file.size>100000){toast(file.name+' is larger than 100 KB and was skipped.');continue}
+  if(pendingFiles.length>=4){toast('Attach up to four text/code files at a time.');break}
+  try{
+   const content=await file.text();
+   if(content.includes('\u0000')){toast(file.name+' does not look like a text file.');continue}
+   const room=Math.max(0,24000-total);if(!room){toast('Attachment text limit reached (24 KB).');break}
+   const clipped=content.slice(0,room);pendingFiles.push({name:file.name,content:clipped,wasTruncated:clipped.length<content.length});total+=clipped.length;
+   if(clipped.length<content.length)toast(file.name+' was shortened to fit the local model context.');
+  }catch(e){toast('Could not read '+file.name+'.')}
+ }
+ updateFileLabel();
+}
 function endpointNow(){return ($('endpoint').value||endpoint||DEFAULT_ENDPOINT).trim().replace(/\/+$/,'')}
 async function fetchTimed(url,opts={},ms=8000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms),external=opts.signal,abort=()=>c.abort();if(external){if(external.aborted)c.abort();else external.addEventListener('abort',abort,{once:true})}try{return await fetch(url,{...opts,signal:c.signal,mode:'cors',targetAddressSpace:'loopback'})}finally{clearTimeout(t);if(external)external.removeEventListener('abort',abort)}}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
