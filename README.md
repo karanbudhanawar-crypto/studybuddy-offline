@@ -57,7 +57,11 @@ Prompts are sent from your browser to the Ollama endpoint configured in the app.
 The app includes a built-in Python calculator source example under **Python calculator**. Its Preview button displays an interactive browser-based equivalent; the Tkinter program itself runs locally on Windows with Python installed.
 
 ```bat
-python python_calculator.py
+python examples/python_calculator.py
 ```
 
 A standalone source file is available in `examples/python_calculator.py`.
+
+
+### Use the built-in Python example in the website
+Open StudyBuddy and click **Python calculator**. The source appears in a Python code block with Copy code and Preview controls. The preview is an interactive browser equivalent; it does not execute Python in the browser.
