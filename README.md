@@ -8,6 +8,7 @@ https://studybuddy-offline.onrender.com
 
 ## Features
 - Student-friendly chat UI with coding, homework, exam, and project prompts.
+- A fixed built-in calculator demo with known-good arithmetic that does not depend on AI-generated code.
 - Copy generated code with one click.
 - Stop a long-running local generation from the send button.
 - Local model responses are capped to keep small CPU-only computers responsive.
