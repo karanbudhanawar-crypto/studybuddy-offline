@@ -595,7 +595,7 @@ async function check(){
   const d=await r.json(),models=(d.models||[]).map(x=>x.name).filter(Boolean);
   $('model').replaceChildren();
   (models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});
-  const advancedInstalled=models.find(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:'));
+  const advancedInstalled=models.find(m=>m==='studybuddy-advanced-trained'||m.startsWith('studybuddy-advanced-trained:'))||models.find(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:'));
   if(selectedMode==='advanced'&&advancedInstalled){
    model=advancedInstalled;$('model').value=model;localStorage.setItem('studybuddy.model',model);
   }else if(models.includes(model))$('model').value=model;
@@ -748,7 +748,8 @@ $('modeSelect').addEventListener('change',()=>{
  const previous=selectedMode;
  selectedMode=$('modeSelect').value||'general';localStorage.setItem('studybuddy.mode',selectedMode);
  if(selectedMode==='advanced'){
-  const advancedOption=Array.from($('model').options).find(o=>o.value==='studybuddy-advanced'||o.value.startsWith('studybuddy-advanced:'));
+  const allModelOptions=Array.from($('model').options);
+  const advancedOption=allModelOptions.find(o=>o.value==='studybuddy-advanced-trained'||o.value.startsWith('studybuddy-advanced-trained:'))||allModelOptions.find(o=>o.value==='studybuddy-advanced'||o.value.startsWith('studybuddy-advanced:'));
   if(advancedOption){
    const advancedModelName=advancedOption.value;
    if(!model.startsWith('studybuddy-advanced'))localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
