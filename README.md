@@ -15,16 +15,16 @@ https://studybuddy-offline.onrender.com
 - No paid AI API key is required.
 
 ## Important: what "StudyBuddy Advanced" means
-The **Advanced** mode is a custom local profile based on Qwen 2.5 1.5B. It applies StudyBuddy-specific instructions and conservative generation settings. It is **not Astra**, does not use Astra weights, and cannot gain frontier-model capabilities from prompts alone. Answer quality still depends on the underlying model, hardware, and task.
+The **Advanced** mode is a custom local profile based on Qwen3 1.7B. It applies StudyBuddy-specific instructions and conservative generation settings. It is **not Astra**, does not use Astra weights, and cannot gain frontier-model capabilities from prompts alone. Answer quality still depends on the underlying model, hardware, and task.
 
 ## Create the custom local model on Windows
 1. Download this repository using GitHub's **Code → Download ZIP** and extract it. Keep `Modelfile` and `CREATE_STUDYBUDDY_ADVANCED.bat` in the same extracted root folder.
 2. Ensure Ollama is installed and running: https://ollama.com/download/windows
-3. Double-click `CREATE_STUDYBUDDY_ADVANCED.bat`. It checks for the base model `qwen2.5:1.5b-instruct` and downloads it if missing, then creates the custom tag `studybuddy-advanced`.
+3. Double-click `CREATE_STUDYBUDDY_ADVANCED.bat`. It checks for the base model `qwen3:1.7b` and downloads it if missing, then creates the custom tag `studybuddy-advanced`.
 4. Open StudyBuddy, hard-refresh with Ctrl+Shift+R, select **Advanced — StudyBuddy model** in the response-mode picker, then open **Connection settings → Check models** if needed.
 5. Confirm `studybuddy-advanced` is selected as the model. If it is not installed, Advanced instructions still work with the currently selected local model.
 
-The custom tag reuses the base model weights and adds a system prompt and runtime defaults; it does not download an Astra model or add new learned knowledge.
+The custom tag reuses Qwen3 1.7B weights and adds a StudyBuddy system prompt and runtime defaults; it does not download an Astra model or add new learned knowledge. Qwen3 1.7B is about 1.4 GB for the Q4_K_M model file; actual memory use is higher while it runs.
 
 ## Run the standalone Python calculator
 The file `examples/python_calculator.py` is a complete Tkinter desktop calculator. With Python installed, run from the repository folder:
