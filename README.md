@@ -12,7 +12,7 @@ https://studybuddy-offline.onrender.com
 - Response modes: general, coding/debugging, homework tutor, exam answer, advice, and creative writing.
 - Attach text/code files to a question and export a conversation as Markdown.
 - Copy individual messages and regenerate the last response.
-- A fixed built-in calculator demo with known-good arithmetic that does not depend on AI-generated code.
+- A fixed built-in HTML calculator and a Python/Tkinter calculator example that do not depend on AI-generated code.
 - Copy generated code with one click.
 - Stop a long-running local generation from the send button.
 - Local model responses are capped to keep small CPU-only computers responsive.
@@ -51,3 +51,13 @@ Prompts are sent from your browser to the Ollama endpoint configured in the app.
 - `manifest.webmanifest` — installable PWA settings
 - `service-worker.js` — offline cache for the interface
 - `icon.svg` — app icon
+
+## Python/Tkinter calculator example
+
+The app includes a built-in Python calculator source example under **Python calculator**. Its Preview button displays an interactive browser-based equivalent; the Tkinter program itself runs locally on Windows with Python installed.
+
+```bat
+python python_calculator.py
+```
+
+A standalone source file is available in `examples/python_calculator.py`.
