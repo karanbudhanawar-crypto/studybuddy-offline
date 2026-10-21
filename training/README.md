@@ -1,38 +1,34 @@
-# StudyBuddy fine-tuning starter
+# StudyBuddy fine-tuning options
 
-This directory contains a real supervised fine-tuning (SFT) workflow for a **LoRA adapter** on `Qwen/Qwen3-1.7B`. It is intended for a CUDA GPU notebook such as Google Colab when a GPU is available. It will not train usefully on the user's Ryzen/AMD low-VRAM laptop; use that laptop to run the quantized model after training.
+This folder now has two routes: a **CPU-only laptop route** and an optional **GPU route**. CPU training does not require a T4, but it is not fast; it can take hours and requires enough RAM and disk space.
 
-## What's included
-- `validate_dataset.py`: checks JSONL format, duplicate prompts, and exact prompt overlap between training/evaluation files.
-- `train.jsonl`: curated synthetic starter examples for coding, computer science homework, exam answers, problem solving, and honest uncertainty.
-- `eval.jsonl`: held-out examples used for evaluation loss; they are not included in training.
-- `train_lora.py`: LoRA supervised fine-tuning using Transformers, TRL, Datasets, and PEFT.
-- `export_to_ollama.py`: merges weights into the base checkpoint, converts the model with llama.cpp, quantizes it to Q4_K_M, and creates a Windows import ZIP.
-- `StudyBuddy_Advanced_Finetune.ipynb`: click-open notebook flow for a CUDA GPU runtime.
+## Recommended for a modest Windows laptop: CPU-only training
+- `train_cpu_lora.py`: real LoRA fine-tuning of Qwen3 0.6B using CPU-only PyTorch, a low CPU thread limit, low process priority, and a RAM preflight check.
+- `TRAIN_ON_LAPTOP_CPU.bat`: Windows batch workflow that creates a venv, installs CPU PyTorch and the required libraries, validates the dataset, fine-tunes locally, then builds/quantizes GGUF for Ollama.
+- `requirements-cpu.txt`: dependencies for the CPU training route.
+- `export_to_ollama.py`: Windows-aware CPU GGUF export and packaging script.
+- `train.jsonl`: 81 synthetic starter examples.
+- `eval.jsonl`: 8 separate examples for evaluation.
+- `validate_dataset.py`: checks data structure, duplicate prompts, and exact train/eval prompt overlap.
 
-## Recommended path
-1. Open [StudyBuddy Advanced Fine-Tuning in Google Colab](https://colab.research.google.com/github/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb). If direct opening does not work, download the notebook from [GitHub](https://github.com/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb) and upload it to Colab.
-2. In Colab choose `Runtime → Change runtime type → T4 GPU` if offered. Free compute availability and limits vary; a GPU is not guaranteed.
-3. Run cells in order. The script trains 3 epochs using max sequence length 1024, saves a LoRA adapter, evaluates on `eval.jsonl`, and merges the adapter back into the original-precision model.
-4. Download `studybuddy-advanced-import.zip` from the last cell.
-5. On Windows, extract the ZIP and run this command in the extracted folder:
-   ```bat
-   ollama create studybuddy-advanced-trained -f Modelfile.trained
-   ```
-6. Test the resulting model with `ollama run studybuddy-advanced-trained`. In the StudyBuddy website, hard refresh and select **Advanced — StudyBuddy model**. When the trained tag is detected, Advanced mode prefers it.
+### Requirements and trade-offs
+- No GPU/T4 is required.
+- This route deliberately trains the smaller **Qwen3 0.6B**, not Qwen3 1.7B, to reduce memory use. It may be faster at inference but has lower raw capacity.
+- At least 8 GB system RAM is a bare minimum; 16 GB is safer. The script stops if available RAM is too low unless you deliberately override the guard.
+- Keep the laptop plugged in and close other applications. It lowers its own process priority and uses two CPU threads by default, but it can still make the laptop feel slower.
+- The training dataset is small; this is a starter fine-tune, not a guarantee of better general reasoning. Fine-tuning does not add tools, web access, or image understanding.
 
-## Optional manual commands
-From a CUDA GPU runtime:
-```bash
-pip install -r training/requirements.txt
-python training/train_lora.py --train-file training/train.jsonl --eval-file training/eval.jsonl --output-dir /content/studybuddy-training-output --epochs 3 --max-length 1024
-python training/export_to_ollama.py --merged-model /content/studybuddy-training-output/merged-fp16 --output-dir /content/studybuddy-training-output/ollama-output
-```
+### Windows steps
+1. Download/extract the GitHub repository and keep its folder structure.
+2. Install Python 3.11–3.13, Git for Windows, CMake, and Visual Studio Build Tools 2022 with the **Desktop development with C++** workload. CMake and C++ tools are needed for the CPU GGUF export step.
+3. Double-click `TRAIN_ON_LAPTOP_CPU.bat` inside the `training` directory.
+4. The process creates `studybuddy-cpu-trained` and prints the exact Ollama import command. Confirm with `ollama run studybuddy-cpu-trained`.
+5. Open StudyBuddy, press Ctrl+Shift+R, and choose **Laptop CPU — light model**. The website prefers `studybuddy-cpu-trained` when present, otherwise it uses `qwen3:0.6b` if you have it installed.
 
-## Important limitations
-- The current starter dataset contains synthetic examples made for this project. It is a useful pipeline test, not a large corpus, and cannot guarantee a meaningful quality gain. Review and expand it with accurate, permissioned examples for the tasks you care about.
-- Evaluate with unseen coding, math, CS, and instruction-following prompts before replacing your previous model. An improved evaluation loss does not guarantee better answers.
-- Fine-tuning changes the model's weights. It does not add web search, run arbitrary programs, or provide vision unless the underlying model supports it.
-- This does not recreate Astra or any proprietary model. It fine-tunes the openly available Qwen3 base model with a StudyBuddy dataset and adapter.
-- The export requires several GB of temporary storage and downloading the GGUF ZIP can take time. Keep enough disk space and do not interrupt the conversion.
-- Only upload data you have rights to use. Do not include private chats, passwords, API keys, student records, or other personal data in training files.
+If model training completes but C++ export fails, the merged checkpoint is saved at `studybuddy-cpu-training-output/merged-f32`. Fix the compiler/CMake setup and run `training/export_to_ollama.py` again against that folder.
+
+## Optional GPU route
+`StudyBuddy_Advanced_Finetune.ipynb` and `train_lora.py` fine-tune Qwen3 1.7B and are intended for a CUDA GPU runtime. Use those only if you have access to an appropriate GPU; this is not required for CPU-only fine-tuning.
+
+## Data quality and evaluation
+The examples are synthetic and may contain limitations. Review outputs on unseen prompts for coding, math, CS subjects, multilingual explanations, and refusal/uncertainty. Do not place private chats, passwords, API keys, student records, or other sensitive data in the training set.
