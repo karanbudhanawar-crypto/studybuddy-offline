@@ -9,6 +9,8 @@ https://studybuddy-offline.onrender.com
 ## Features
 - Student-friendly chat UI with coding, homework, exam, and project prompts.
 - Copy generated code with one click.
+- Stop a long-running local generation from the send button.
+- Local model responses are capped to keep small CPU-only computers responsive.
 - Live sandbox preview combines related HTML, CSS, and JavaScript blocks from one answer into a working demo; SVG snippets are also previewable. Python and desktop-language previews explain how to run code locally.
 - Connects to Ollama running on the same device.
 - Progressive Web App (PWA) install support and offline cache for the interface.
