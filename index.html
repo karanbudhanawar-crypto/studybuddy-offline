@@ -42,7 +42,7 @@
 <section class="chat hidden" id="chatLog" aria-live="polite"></section><div class="thinking hidden" id="thinking">✦ Thinking on your device…</div>
 <footer class="composerwrap">
 <div class="composer-tools">
-<label for="modeSelect" class="sub">Mode</label><select id="modeSelect" class="mode-select" aria-label="Assistant mode" title="Advanced uses the custom studybuddy-advanced model when installed."><option value="general">General assistant</option><option value="advanced">Advanced — StudyBuddy model</option><option value="coding">Coding & debugging</option><option value="homework">Homework tutor</option><option value="exam">Exam answer</option><option value="advice">Advice & suggestions</option><option value="creative">Creative writing</option></select>
+<label for="modeSelect" class="sub">Mode</label><select id="modeSelect" class="mode-select" aria-label="Assistant mode" title="Advanced uses the custom studybuddy-advanced model when installed."><option value="general">General assistant</option><option value="advanced">Advanced — StudyBuddy model</option><option value="cpu-light">Laptop CPU — light model</option><option value="coding">Coding & debugging</option><option value="homework">Homework tutor</option><option value="exam">Exam answer</option><option value="advice">Advice & suggestions</option><option value="creative">Creative writing</option></select>
 <button type="button" class="tool-btn" id="attachBtn">📎 Attach text/code/images</button><input type="file" id="fileInput" class="file-hidden" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.html,.htm,.css,.json,.csv,.xml,.sql,.java,.c,.cpp,.h,.hpp,.yml,.yaml,.log,.sh,.png,.jpg,.jpeg,.webp">
 <button type="button" class="tool-btn" id="clearFilesBtn" hidden>Clear files</button><span class="file-list" id="fileList" aria-live="polite"></span>
 <button type="button" class="tool-btn" id="exportBtn">⇩ Export chat</button>
@@ -352,7 +352,8 @@ const MODE_INSTRUCTIONS={
  exam:"Write exam-ready answers with a definition, numbered important points, and a brief conclusion. Respect the requested marks or length.",
  advice:"Give practical, balanced suggestions. Mention trade-offs and ask a clarifying question only when it is necessary.",
  creative:"Help with writing, story ideas, outlines, and revisions. Match the requested style and keep the result original.",
- advanced:"Use a careful, structured, high-effort answer style. Identify requirements and assumptions, solve the task, and do a brief verification check before responding. For code, provide complete runnable code with imports, event handlers, error handling, run instructions, and a short checklist; never invent test results. For math, verify arithmetic and units. For homework, teach the steps before giving the answer. Use concise headings and mention important trade-offs. Do not reveal hidden private reasoning. State limitations honestly."
+ advanced:"Use a careful, structured, high-effort answer style. Identify requirements and assumptions, solve the task, and do a brief verification check before responding. For code, provide complete runnable code with imports, event handlers, error handling, run instructions, and a short checklist; never invent test results. For math, verify arithmetic and units. For homework, teach the steps before giving the answer. Use concise headings and mention important trade-offs. Do not reveal hidden private reasoning. State limitations honestly.",
+ "cpu-light":"Use short, direct replies that are efficient for a small CPU-only model. Prefer a compact answer first, small examples, and complete but concise code. For long requests, suggest breaking the task into steps. Be honest that a lightweight model has lower capability and may make mistakes. Do not claim browsing, tools, or tests that were not performed."
 };
 function makeChatId(){return 'chat-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)}
 function safeReadChats(){
@@ -595,13 +596,18 @@ async function check(){
   const d=await r.json(),models=(d.models||[]).map(x=>x.name).filter(Boolean);
   $('model').replaceChildren();
   (models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});
+  const cpuTrained=models.find(m=>m==='studybuddy-cpu-trained'||m.startsWith('studybuddy-cpu-trained:'));
+  const cpuLite=models.find(m=>m==='qwen3:0.6b'||m.startsWith('qwen3:0.6b-'));
   const advancedInstalled=models.find(m=>m==='studybuddy-advanced-trained'||m.startsWith('studybuddy-advanced-trained:'))||models.find(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:'));
-  if(selectedMode==='advanced'&&advancedInstalled){
+  if(selectedMode==='cpu-light'&&(cpuTrained||cpuLite)){
+   model=cpuTrained||cpuLite;$('model').value=model;localStorage.setItem('studybuddy.model',model);
+  }else if(selectedMode==='advanced'&&advancedInstalled){
    model=advancedInstalled;$('model').value=model;localStorage.setItem('studybuddy.model',model);
   }else if(models.includes(model))$('model').value=model;
   else if(models.length){model=models[0];$('model').value=model}
   status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');
-  if(selectedMode==='advanced'&&!models.some(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:')))toast('Advanced instructions are active. To install the custom model, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then click Check models.');
+  if(selectedMode==='advanced'&&!models.some(m=>m==='studybuddy-advanced-trained'||m.startsWith('studybuddy-advanced-trained:')||m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:')))toast('Advanced instructions are active. To install the custom Qwen3 1.7B model, run CREATE_STUDYBUDDY_ADVANCED.bat from the project.');
+  if(selectedMode==='cpu-light'&&!cpuTrained&&!cpuLite)toast('No lightweight model found. Run ollama pull qwen3:0.6b, or use training/TRAIN_ON_LAPTOP_CPU.bat to fine-tune and create studybuddy-cpu-trained.');
   if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);
   return models.length>0;
  }catch(e){
@@ -747,6 +753,17 @@ $('modeSelect').value=selectedMode;
 $('modeSelect').addEventListener('change',()=>{
  const previous=selectedMode;
  selectedMode=$('modeSelect').value||'general';localStorage.setItem('studybuddy.mode',selectedMode);
+ const opts=Array.from($('model').options);
+ if(previous==='cpu-light'&&selectedMode!=='cpu-light'){
+  const prior=localStorage.getItem('studybuddy.preCpuModel')||DEFAULT_MODEL;
+  if(opts.some(o=>o.value===prior)){$('model').value=prior;model=prior;localStorage.setItem('studybuddy.model',model)}
+ }
+ if(selectedMode==='cpu-light'){
+  if(previous!=='cpu-light'&&!model.startsWith('studybuddy-cpu-trained')&&!model.startsWith('qwen3:0.6b'))localStorage.setItem('studybuddy.preCpuModel',model||DEFAULT_MODEL);
+  const cpuOption=opts.find(o=>o.value==='studybuddy-cpu-trained'||o.value.startsWith('studybuddy-cpu-trained:'))||opts.find(o=>o.value==='qwen3:0.6b'||o.value.startsWith('qwen3:0.6b-'));
+  if(cpuOption){model=cpuOption.value;$('model').value=model;localStorage.setItem('studybuddy.model',model);toast('Laptop CPU mode is using '+model+'.')}
+  else toast('Light model not installed. Run ollama pull qwen3:0.6b for lighter inference, or use training/TRAIN_ON_LAPTOP_CPU.bat to fine-tune a small model. Training can take hours.');
+ }
  if(selectedMode==='advanced'){
   const allModelOptions=Array.from($('model').options);
   const advancedOption=allModelOptions.find(o=>o.value==='studybuddy-advanced-trained'||o.value.startsWith('studybuddy-advanced-trained:'))||allModelOptions.find(o=>o.value==='studybuddy-advanced'||o.value.startsWith('studybuddy-advanced:'));
@@ -754,9 +771,9 @@ $('modeSelect').addEventListener('change',()=>{
    const advancedModelName=advancedOption.value;
    if(!model.startsWith('studybuddy-advanced'))localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
    model=advancedModelName;$('model').value=model;localStorage.setItem('studybuddy.model',model);
-   toast('Advanced mode is using studybuddy-advanced.');
+   toast('Advanced mode is using '+model+'.');
   }else{
-   toast('Advanced instructions enabled. To use the custom model too, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then open Connection settings and click Check models.');
+   toast('Advanced instructions enabled. To use the custom 1.7B model too, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then click Check models.');
   }
  }else if(previous==='advanced'&&model.startsWith('studybuddy-advanced')){
   const preferred=localStorage.getItem('studybuddy.preAdvancedModel')||DEFAULT_MODEL;
