@@ -1,7 +1,7 @@
 @echo off
 setlocal
 title StudyBuddy CPU Fine-Tune (Qwen3 0.6B)
-cd /d "%~dp0"
+cd /d "%~dp0.."
 set OMP_NUM_THREADS=2
 set MKL_NUM_THREADS=2
 set TOKENIZERS_PARALLELISM=false
@@ -24,7 +24,7 @@ if errorlevel 2 exit /b 0
 
 where python >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: Python was not found. Install Python 3.11 or 3.12 from python.org, then retry.
+  echo ERROR: Python was not found. Install Python 3.11, 3.12, or 3.13 from python.org, then retry.
   pause
   exit /b 1
 )
