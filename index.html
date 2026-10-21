@@ -22,6 +22,7 @@
  <button class="quick" data-prompt="Explain this topic in simple language with an example: "><span class="qicon">✎</span><span><b>Explain a topic</b><small>Step-by-step help</small></span></button>
  <button class="quick" data-prompt="Help me debug this code. Explain the error and provide a corrected version:\n\n"><span class="qicon">⌘</span><span><b>Debug my code</b><small>Find and fix errors</small></span></button>
  <button class="quick" id="calculatorDemoSidebar" type="button"><span class="qicon">▦</span><span><b>Working calculator</b><small>Built-in tested example</small></span></button>
+<button class="quick" id="pythonCalculatorSidebar" type="button"><span class="qicon">Py</span><span><b>Python calculator</b><small>Tkinter source + preview</small></span></button>
 <button class="quick" data-prompt="Write a 4-mark exam answer about: "><span class="qicon">▤</span><span><b>Exam answer</b><small>Definition and key points</small></span></button>
  <button class="quick" data-prompt="Suggest beginner-friendly mini-projects for a Computer Engineering student. Include features and tools."><span class="qicon">◇</span><span><b>Project ideas</b><small>Ideas you can build</small></span></button>
  <div class="spacer"></div>
@@ -36,6 +37,7 @@
 <button class="card" data-prompt="Suggest five practical mini-projects for a B.Tech Computer Engineering student using Python."><span>◇</span><strong>Find a project idea</strong><small>Features and tools included</small></button>
 <button class="card" data-prompt="Help me create a realistic study plan for this week. Ask about my subjects and deadlines."><span>◷</span><strong>Make a study plan</strong><small>Organize tasks and deadlines</small></button>
 <button class="card" id="calculatorDemoBtn" type="button"><span>▦</span><strong>Working calculator</strong><small>Test reliable code and live preview</small></button>
+<button class="card" id="pythonCalculatorBtn" type="button"><span>Py</span><strong>Python calculator</strong><small>Working Tkinter source</small></button>
 </div></section>
 <section class="chat hidden" id="chatLog" aria-live="polite"></section><div class="thinking hidden" id="thinking">✦ Thinking on your device…</div>
 <footer class="composerwrap">
@@ -79,6 +81,247 @@ document.querySelector('.keys').addEventListener('click',e=>{const b=e.target.cl
 document.addEventListener('keydown',e=>{if(/^[0-9]$/.test(e.key))return digit(e.key);if(e.key==='.')return decimal();if(['+','-','*','/'].includes(e.key))return choose(e.key);if(e.key==='Enter'||e.key==='='){e.preventDefault();return equals()}if(e.key==='Escape')clear();if(e.key==='Backspace'){current=current.length>1?current.slice(0,-1):'0';render()}});
 render()})();
 <\/script></body></html>`;
+const BUILTIN_PYTHON_CALCULATOR_CODE = String.raw`import tkinter as tk
+from tkinter import ttk
+
+
+class SimpleCalculator:
+    """A small four-operation calculator built with Python's Tkinter GUI."""
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("StudyBuddy Python Calculator")
+        self.root.geometry("340x460")
+        self.root.minsize(300, 420)
+        self.root.configure(bg="#0b1020")
+
+        self.current = "0"
+        self.stored_value = None
+        self.operator = None
+        self.waiting_for_operand = False
+
+        self.display_var = tk.StringVar(value=self.current)
+        display = ttk.Entry(
+            root,
+            textvariable=self.display_var,
+            justify="right",
+            state="readonly",
+            font=("Consolas", 24),
+        )
+        display.grid(row=0, column=0, columnspan=4, padx=12, pady=(16, 10), sticky="nsew", ipady=10)
+
+        buttons = [
+            ("AC", 1, 0, "clear"), ("DEL", 1, 1, "delete"),
+            ("%", 1, 2, "percent"), ("÷", 1, 3, "/"),
+            ("7", 2, 0, "7"), ("8", 2, 1, "8"), ("9", 2, 2, "9"), ("×", 2, 3, "*"),
+            ("4", 3, 0, "4"), ("5", 3, 1, "5"), ("6", 3, 2, "6"), ("−", 3, 3, "-"),
+            ("1", 4, 0, "1"), ("2", 4, 1, "2"), ("3", 4, 2, "3"), ("+", 4, 3, "+"),
+            ("0", 5, 0, "0"), (".", 5, 2, "decimal"), ("=", 5, 3, "equals"),
+        ]
+
+        for label, row, column, action in buttons:
+            color = "#302950" if action in {"+", "-", "*", "/", "equals"} else "#1c2941"
+            foreground = "#d5c1ff" if action in {"+", "-", "*", "/"} else "#eff4ff"
+            if action == "equals":
+                color, foreground = "#b9c9ff", "#101629"
+            elif action in {"clear", "delete", "percent"}:
+                color, foreground = "#202e49", "#c4d2f2"
+
+            button = tk.Button(
+                root,
+                text=label,
+                command=lambda selected=action: self.press(selected),
+                bg=color,
+                fg=foreground,
+                activebackground="#53658b",
+                activeforeground="#ffffff",
+                relief="flat",
+                bd=0,
+                font=("Segoe UI", 14, "bold"),
+                cursor="hand2",
+            )
+            column_span = 2 if label == "0" else 1
+            button.grid(
+                row=row,
+                column=column,
+                columnspan=column_span,
+                padx=5,
+                pady=5,
+                sticky="nsew",
+                ipady=9,
+            )
+
+        for column in range(4):
+            root.columnconfigure(column, weight=1, uniform="calculator")
+        for row in range(1, 6):
+            root.rowconfigure(row, weight=1, uniform="keys")
+
+        self.status_var = tk.StringVar(value="Keyboard: digits, +, -, *, /, Enter")
+        status = tk.Label(
+            root,
+            textvariable=self.status_var,
+            bg="#0b1020",
+            fg="#9baac4",
+            font=("Segoe UI", 8),
+        )
+        status.grid(row=6, column=0, columnspan=4, padx=8, pady=(5, 10))
+        root.bind("<Key>", self.handle_key)
+        root.focus_set()
+
+    def show(self, value):
+        self.current = str(value)
+        self.display_var.set(self.current)
+
+    @staticmethod
+    def calculate(left, right, operator):
+        if operator == "+":
+            return left + right
+        if operator == "-":
+            return left - right
+        if operator == "*":
+            return left * right
+        if operator == "/":
+            if right == 0:
+                raise ZeroDivisionError("Cannot divide by zero.")
+            return left / right
+        raise ValueError("Unknown operation.")
+
+    @staticmethod
+    def format_number(value):
+        if value.is_integer():
+            return str(int(value))
+        return format(value, ".12g")
+
+    def press(self, action):
+        if action.isdigit():
+            self.enter_digit(action)
+        elif action == "decimal":
+            self.enter_decimal()
+        elif action in {"+", "-", "*", "/"}:
+            self.choose_operator(action)
+        elif action == "equals":
+            self.equals()
+        elif action == "clear":
+            self.clear()
+        elif action == "delete":
+            self.delete()
+        elif action == "percent":
+            try:
+                self.show(self.format_number(float(self.current) / 100))
+            except ValueError:
+                self.show("0")
+
+    def enter_digit(self, digit):
+        if self.waiting_for_operand or self.current in {"Error", "Cannot divide"}:
+            self.show(digit)
+            self.waiting_for_operand = False
+        elif self.current == "0":
+            self.show(digit)
+        elif len(self.current) < 16:
+            self.show(self.current + digit)
+        self.status_var.set("")
+
+    def enter_decimal(self):
+        if self.waiting_for_operand or self.current in {"Error", "Cannot divide"}:
+            self.show("0.")
+            self.waiting_for_operand = False
+        elif "." not in self.current:
+            self.show(self.current + ".")
+        self.status_var.set("")
+
+    def choose_operator(self, next_operator):
+        try:
+            value = float(self.current)
+        except ValueError:
+            self.status_var.set("Enter a number first.")
+            return
+
+        if self.operator is not None and not self.waiting_for_operand:
+            try:
+                result = self.calculate(self.stored_value, value, self.operator)
+            except (ZeroDivisionError, ValueError) as error:
+                self.status_var.set(str(error))
+                return
+            self.show(self.format_number(float(result)))
+            value = float(self.current)
+
+        self.stored_value = value
+        self.operator = next_operator
+        self.waiting_for_operand = True
+        self.status_var.set("")
+
+    def equals(self):
+        if self.operator is None or self.stored_value is None:
+            return
+        try:
+            result = self.calculate(self.stored_value, float(self.current), self.operator)
+            self.show(self.format_number(float(result)))
+            self.stored_value = None
+            self.operator = None
+            self.waiting_for_operand = True
+            self.status_var.set("")
+        except ZeroDivisionError:
+            self.show("Error")
+            self.status_var.set("Cannot divide by zero.")
+            self.stored_value = None
+            self.operator = None
+            self.waiting_for_operand = True
+        except (ValueError, OverflowError):
+            self.show("Error")
+            self.status_var.set("Please enter a valid calculation.")
+            self.stored_value = None
+            self.operator = None
+            self.waiting_for_operand = True
+
+    def clear(self):
+        self.show("0")
+        self.stored_value = None
+        self.operator = None
+        self.waiting_for_operand = False
+        self.status_var.set("")
+
+    def delete(self):
+        if self.waiting_for_operand or self.current in {"Error", "Cannot divide"}:
+            self.show("0")
+            self.waiting_for_operand = False
+        elif len(self.current) > 1:
+            remaining = self.current[:-1]
+            self.show("0" if remaining in {"", "-"} else remaining)
+        else:
+            self.show("0")
+
+    def handle_key(self, event):
+        char = event.char
+        if char.isdigit():
+            self.enter_digit(char)
+            return "break"
+        if char == ".":
+            self.enter_decimal()
+            return "break"
+        if char in {"+", "-", "*", "/"}:
+            self.choose_operator(char)
+            return "break"
+        if event.keysym in {"Return", "KP_Enter"}:
+            self.equals()
+            return "break"
+        if event.keysym == "Escape":
+            self.clear()
+            return "break"
+        if event.keysym == "BackSpace":
+            self.delete()
+            return "break"
+        return None
+
+
+def main():
+    root = tk.Tk()
+    SimpleCalculator(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+`;
 function showBuiltinCalculator(){
  const answer='Here is a built-in calculator written by StudyBuddy. This fixed example does not depend on the local AI model. Click Preview to use it, or Copy code to save it.\n\n```html\n'+BUILTIN_CALCULATOR_CODE+'\n```';
  reset();
@@ -86,6 +329,14 @@ function showBuiltinCalculator(){
  addMessage('assistant',answer);
  persistConversation();
  status('Built-in demo · ready','ok');
+}
+function showBuiltinPythonCalculator(){
+ const answer='Here is a complete Python/Tkinter calculator written by StudyBuddy. The source uses operation state instead of eval, handles division by zero, supports keyboard input, and lays out the buttons in a grid. Click Preview for a browser-based interactive equivalent, or Copy code to save the Python program.\n\n```python\n'+BUILTIN_PYTHON_CALCULATOR_CODE+'\n```\n\nTo run the real Tkinter program on Windows, save it as python_calculator.py and run: python python_calculator.py';
+ reset();
+ messages.push({role:'assistant',content:answer,displayContent:answer});
+ addMessage('assistant',answer);
+ persistConversation();
+ status('Built-in Python example · ready','ok');
 }
 let endpoint=localStorage.getItem('studybuddy.endpoint')||DEFAULT_ENDPOINT;
 if(endpoint==='http://localhost:11434')endpoint=DEFAULT_ENDPOINT;
@@ -236,6 +487,7 @@ function groupedCode(sample,related){
 }
 function buildPreviewDocument(sample,related){
  const all=groupedCode(sample,related);
+ if(sample.language==='python' && sample.code.trim()===BUILTIN_PYTHON_CALCULATOR_CODE.trim())return BUILTIN_CALCULATOR_CODE.replace('<head>','<head>'+PREVIEW_CSP);
  const htmlSample=all.find(x=>['html','htm','xhtml'].includes(x.language));
  const svgSample=all.find(x=>x.language==='svg');
  const css=all.filter(x=>x.language==='css').map(x=>x.code).join('\n\n');
@@ -278,7 +530,7 @@ function showCodePreview(panel,sample,related){
   iframe.setAttribute('title','Isolated live code preview');
   iframe.srcdoc=doc;
   panel.append(iframe);
-  const help=document.createElement('div');help.className='preview-footnote';help.textContent='Preview combines related HTML, CSS, and JavaScript code blocks from this answer. It runs in an isolated sandbox with network requests blocked.'+(sample.closed===false?' The model response ended before the code fence closed; check the code for truncation.':'');panel.append(help);
+  const help=document.createElement('div');help.className='preview-footnote';help.textContent=(sample.language==='python'&&sample.code.trim()===BUILTIN_PYTHON_CALCULATOR_CODE.trim())?'Interactive browser preview of this Python calculator. The Python/Tkinter source itself runs on your PC with python python_calculator.py.':'Preview combines related HTML, CSS, and JavaScript code blocks from this answer. It runs in an isolated sandbox with network requests blocked.'+(sample.closed===false?' The model response ended before the code fence closed; check the code for truncation.':'');panel.append(help);
   return;
  }
  const note=document.createElement('div');note.className='preview-note';
@@ -420,6 +672,8 @@ function persistConversationList(){
  renderHistory();
 }
 $('calculatorDemoBtn').addEventListener('click',showBuiltinCalculator);
+$('pythonCalculatorBtn').addEventListener('click',showBuiltinPythonCalculator);
+$('pythonCalculatorSidebar').addEventListener('click',showBuiltinPythonCalculator);
 $('calculatorDemoSidebar').addEventListener('click',showBuiltinCalculator);
 $('newBtn').addEventListener('click',reset);$('clearBtn').addEventListener('click',reset);$('settingsBtn').addEventListener('click',openSettings);$('settingsBtnMobile').addEventListener('click',openSettings);$('closeBtn').addEventListener('click',()=>$('settingsDialog').classList.add('hidden'));
 $('modeSelect').value=selectedMode;
