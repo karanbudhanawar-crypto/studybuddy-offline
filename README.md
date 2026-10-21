@@ -54,3 +54,14 @@ The website's Preview is an interactive browser equivalent, not a browser execut
 - `CREATE_STUDYBUDDY_ADVANCED.bat` — Windows model creation helper
 - `examples/python_calculator.py` — standalone Python/Tkinter calculator
 - `manifest.webmanifest`, `service-worker.js`, `icon.svg` — installable PWA/offline shell
+
+
+## Advanced local model
+- The Advanced mode uses the custom Ollama model tag `studybuddy-advanced` when installed.
+- `Modelfile` is based on `qwen3:1.7b`; `CREATE_STUDYBUDDY_ADVANCED.bat` checks/pulls that base and creates the custom tag.
+- Qwen3 1.7B is a small text model, not Astra and not a replica of proprietary weights. The custom instructions improve response format but cannot create capabilities or accuracy not present in the base model.
+- Qwen3 1.7B Q4_K_M is around 1.4 GB on disk; runtime memory use is higher and CPU inference may be slow on low-RAM systems.
+
+## Optional local image understanding
+The app can submit PNG/JPG/WEBP images to compatible local vision models. The default Qwen3 text model cannot see images. For a vision-capable model, run `ollama pull gemma3:4b` and select `gemma3:4b` in Connection settings. This image model is around 3.3 GB on disk and may exceed practical memory for a low-RAM laptop, so image support is optional. Image bytes are sent to the Ollama endpoint you selected; images aren't stored in saved chat history.
+
