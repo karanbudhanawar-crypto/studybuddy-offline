@@ -441,7 +441,7 @@ function readImageAsBase64(file){
  });
 }
 function modelSupportsVision(name){
- return /gemma3:(4b|12b|27b)|qwen2\.5vl|qwen2-vl|qwen3-vl|llava|moondream|llama3\.2-vision|minicpm-v/i.test(name||'');
+ return /gemma3:(4b|12b|27b|latest)|qwen2\.5vl|qwen2-vl|qwen3-vl|llava|moondream|llama3\.2-vision|minicpm-v/i.test(name||'');
 }
 async function addTextFiles(fileList){
  let total=pendingFiles.reduce((n,f)=>n+f.content.length,0);
@@ -751,7 +751,7 @@ $('modeSelect').addEventListener('change',()=>{
   const advancedOption=Array.from($('model').options).find(o=>o.value==='studybuddy-advanced'||o.value.startsWith('studybuddy-advanced:'));
   if(advancedOption){
    const advancedModelName=advancedOption.value;
-   if(model!=='studybuddy-advanced')localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
+   if(!model.startsWith('studybuddy-advanced'))localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
    model=advancedModelName;$('model').value=model;localStorage.setItem('studybuddy.model',model);
    toast('Advanced mode is using studybuddy-advanced.');
   }else{
