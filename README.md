@@ -65,3 +65,10 @@ The website's Preview is an interactive browser equivalent, not a browser execut
 ## Optional local image understanding
 The app can submit PNG/JPG/WEBP images to compatible local vision models. The default Qwen3 text model cannot see images. For a vision-capable model, run `ollama pull gemma3:4b` and select `gemma3:4b` in Connection settings. This image model is around 3.3 GB on disk and may exceed practical memory for a low-RAM laptop, so image support is optional. Image bytes are sent to the Ollama endpoint you selected; images aren't stored in saved chat history.
 
+
+
+## Fine-tune StudyBuddy Advanced
+
+A starter LoRA fine-tuning pipeline lives in [`training/`](https://github.com/karanbudhanawar-crypto/studybuddy-offline/tree/main/training). It includes 81 synthetic supervised examples, a separate held-out evaluation set, training and GGUF export scripts, and a Colab notebook. The actual fine-tuning still needs to be run on a CUDA GPU; it has not been run by this repository update.
+
+Start here: [Open the fine-tuning notebook in Google Colab](https://colab.research.google.com/github/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb).
