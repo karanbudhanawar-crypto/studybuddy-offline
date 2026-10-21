@@ -17,7 +17,8 @@
  <div class="label">QUICK START</div>
  <button class="quick" data-prompt="Explain this topic in simple language with an example: "><span class="qicon">✎</span><span><b>Explain a topic</b><small>Step-by-step help</small></span></button>
  <button class="quick" data-prompt="Help me debug this code. Explain the error and provide a corrected version:\n\n"><span class="qicon">⌘</span><span><b>Debug my code</b><small>Find and fix errors</small></span></button>
- <button class="quick" data-prompt="Write a 4-mark exam answer about: "><span class="qicon">▤</span><span><b>Exam answer</b><small>Definition and key points</small></span></button>
+ <button class="quick" id="calculatorDemoSidebar" type="button"><span class="qicon">▦</span><span><b>Working calculator</b><small>Built-in tested example</small></span></button>
+<button class="quick" data-prompt="Write a 4-mark exam answer about: "><span class="qicon">▤</span><span><b>Exam answer</b><small>Definition and key points</small></span></button>
  <button class="quick" data-prompt="Suggest beginner-friendly mini-projects for a Computer Engineering student. Include features and tools."><span class="qicon">◇</span><span><b>Project ideas</b><small>Ideas you can build</small></span></button>
  <div class="spacer"></div>
  <div class="localnote"><span class="dot" id="sideDot"></span><div><b>Your model, your device</b><small>Chat requests are sent to the Ollama address you choose, not to a cloud AI API in this project.</small></div></div>
@@ -30,6 +31,7 @@
 <button class="card" data-prompt="Teach me Python classes with a small runnable example and practice questions."><span>⌘</span><strong>Learn coding</strong><small>Understand code step by step</small></button>
 <button class="card" data-prompt="Suggest five practical mini-projects for a B.Tech Computer Engineering student using Python."><span>◇</span><strong>Find a project idea</strong><small>Features and tools included</small></button>
 <button class="card" data-prompt="Help me create a realistic study plan for this week. Ask about my subjects and deadlines."><span>◷</span><strong>Make a study plan</strong><small>Organize tasks and deadlines</small></button>
+<button class="card" id="calculatorDemoBtn" type="button"><span>▦</span><strong>Working calculator</strong><small>Test reliable code and live preview</small></button>
 </div></section>
 <section class="chat hidden" id="chatLog" aria-live="polite"></section><div class="thinking hidden" id="thinking">✦ Thinking on your device…</div>
 <footer class="composerwrap"><form class="composer" id="chatForm"><textarea id="prompt" rows="1" placeholder="Ask a question or paste your code…" aria-label="Your message" required></textarea><button class="send" id="sendBtn" type="submit" aria-label="Send">↑</button></form><div class="foot"><span>◉ Local AI · No paid AI API key required</span><span>AI can make mistakes. Verify important answers.</span></div></footer>
@@ -41,6 +43,38 @@
 const $=id=>document.getElementById(id);
 const DEFAULT_ENDPOINT='http://127.0.0.1:11434', DEFAULT_MODEL='qwen2.5:1.5b-instruct';
 const SYSTEM='You are StudyBuddy, a helpful student assistant. Help with programming, debugging, homework, exam preparation, explanations, project ideas, and practical suggestions. Use simple, clear language. For exam answers, give a definition, important points, and a short conclusion. For coding questions, provide working examples where useful and explain how to run them. If uncertain, say so. Do not invent sources or current facts. You are not browsing the web.';
+const BUILTIN_CALCULATOR_CODE = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StudyBuddy Calculator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:#0b1020;color:#eff4ff;font-family:system-ui,sans-serif}.calculator{width:min(360px,100%);padding:20px;border-radius:22px;background:#111a2d;border:1px solid #34415f;box-shadow:0 18px 50px #0005}h1{font-size:18px;margin:0 0 5px}.sub{font-size:12px;color:#9baac4;margin:0 0 18px}#display{width:100%;height:76px;margin-bottom:12px;padding:12px;text-align:right;font:500 32px ui-monospace,monospace;color:#eff4ff;background:#070d19;border:1px solid #34415f;border-radius:13px}.keys{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}button{min-height:54px;border:1px solid #354462;background:#1c2941;color:#eff4ff;border-radius:12px;font:600 17px system-ui;cursor:pointer}button:hover{border-color:#b7caff;filter:brightness(1.12)}button:focus-visible{outline:2px solid #b7caff;outline-offset:2px}.utility{color:#c4d2f2;background:#202e49}.operator{color:#d5c1ff;background:#302950}.equals{background:linear-gradient(135deg,#adc7ff,#c6adff);color:#101629;border:0}.zero{grid-column:span 2}#calcStatus{min-height:20px;padding-top:10px;color:#ffba96;font-size:12px;text-align:center}
+</style></head><body>
+<main class="calculator" aria-label="Working calculator"><h1>StudyBuddy Calculator</h1><p class="sub">Built-in demo — working arithmetic and keyboard input.</p><input id="display" value="0" aria-label="Calculator display" readonly>
+<div class="keys">
+<button type="button" class="utility" data-action="clear">AC</button><button type="button" class="utility" data-action="delete">DEL</button><button type="button" class="utility" data-action="percent">%</button><button type="button" class="operator" data-operator="/">÷</button>
+<button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button><button type="button" class="operator" data-operator="*">×</button>
+<button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button><button type="button" class="operator" data-operator="-">−</button>
+<button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button><button type="button" class="operator" data-operator="+">+</button>
+<button type="button" class="zero" data-digit="0">0</button><button type="button" data-action="decimal">.</button><button type="button" class="equals" data-action="equals">=</button></div><div id="calcStatus" role="status" aria-live="polite"></div></main>
+<script>
+(()=>{const display=document.getElementById('display'),status=document.getElementById('calcStatus');let current='0',stored=null,operator=null,waiting=false;
+const render=()=>display.value=current;
+function clear(){current='0';stored=null;operator=null;waiting=false;status.textContent='';render()}
+function digit(v){status.textContent='';if(waiting){current=v;waiting=false}else if(current==='0')current=v;else if(current.length<16)current+=v;render()}
+function decimal(){if(waiting){current='0.';waiting=false}else if(!current.includes('.'))current+='.';status.textContent='';render()}
+function calc(a,b,op){if(op==='+')return a+b;if(op==='-')return a-b;if(op==='*')return a*b;if(op==='/')return b===0?null:a/b;return b}
+function choose(op){const n=Number(current);if(!Number.isFinite(n)){status.textContent='Enter a valid number.';return}if(operator&&!waiting&&stored!==null){const r=calc(stored,n,operator);if(r===null){status.textContent='Cannot divide by zero.';return}current=String(Number(r.toPrecision(12)));render();stored=Number(current)}else stored=n;operator=op;waiting=true;status.textContent=''}
+function equals(){if(operator===null||stored===null)return;const r=calc(stored,Number(current),operator);if(r===null){status.textContent='Cannot divide by zero.';return}if(!Number.isFinite(r)){status.textContent='Result is too large.';return}current=String(Number(r.toPrecision(12)));stored=null;operator=null;waiting=true;status.textContent='';render()}
+document.querySelector('.keys').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.digit!==undefined)return digit(b.dataset.digit);if(b.dataset.operator)return choose(b.dataset.operator);switch(b.dataset.action){case'clear':clear();break;case'decimal':decimal();break;case'equals':equals();break;case'percent':current=String(Number(current)/100);waiting=false;render();break;case'delete':if(waiting)waiting=false;current=current.length>1?current.slice(0,-1):'0';if(current==='-'||!current)current='0';render();break}});
+document.addEventListener('keydown',e=>{if(/^[0-9]$/.test(e.key))return digit(e.key);if(e.key==='.')return decimal();if(['+','-','*','/'].includes(e.key))return choose(e.key);if(e.key==='Enter'||e.key==='='){e.preventDefault();return equals()}if(e.key==='Escape')clear();if(e.key==='Backspace'){current=current.length>1?current.slice(0,-1):'0';render()}});
+render()})();
+<\/script></body></html>`;
+function showBuiltinCalculator(){
+ const answer='Here is a built-in calculator written by StudyBuddy. This fixed example does not depend on the local AI model. Click Preview to use it, or Copy code to save it.\n\n```html\n'+BUILTIN_CALCULATOR_CODE+'\n```';
+ reset();
+ messages.push({role:'assistant',content:answer});
+ addMessage('assistant',answer);
+ status('Built-in demo · ready','ok');
+}
 let endpoint=localStorage.getItem('studybuddy.endpoint')||DEFAULT_ENDPOINT;
 if(endpoint==='http://localhost:11434')endpoint=DEFAULT_ENDPOINT;
 let model=localStorage.getItem('studybuddy.model')||DEFAULT_MODEL;
@@ -176,6 +210,8 @@ $('chatLog').addEventListener('click',async e=>{
   showCodePreview(panel,sample,related);panel.classList.remove('hidden');btn.setAttribute('aria-expanded','true');btn.textContent='Hide preview';
  }
 });
+$('calculatorDemoBtn').addEventListener('click',showBuiltinCalculator);
+$('calculatorDemoSidebar').addEventListener('click',showBuiltinCalculator);
 $('newBtn').addEventListener('click',reset);$('clearBtn').addEventListener('click',reset);$('settingsBtn').addEventListener('click',openSettings);$('settingsBtnMobile').addEventListener('click',openSettings);$('closeBtn').addEventListener('click',()=>$('settingsDialog').classList.add('hidden'));
 $('checkBtn').addEventListener('click',()=>{endpoint=endpointNow();void check().then(ok=>toast(ok?'Connection successful':'Connection failed. Check Ollama and browser permissions.'))});
 $('saveBtn').addEventListener('click',()=>{endpoint=endpointNow();model=$('model').value||DEFAULT_MODEL;localStorage.setItem('studybuddy.endpoint',endpoint);localStorage.setItem('studybuddy.model',model);$('settingsDialog').classList.add('hidden');void check();toast('Connection settings saved in this browser.')});
