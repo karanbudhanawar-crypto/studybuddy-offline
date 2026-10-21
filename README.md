@@ -8,6 +8,10 @@ https://studybuddy-offline.onrender.com
 
 ## Features
 - Student-friendly chat UI with coding, homework, exam, and project prompts.
+- Local chat history saved in the browser (reopen, rename, delete; stored on this device/browser).
+- Response modes: general, coding/debugging, homework tutor, exam answer, advice, and creative writing.
+- Attach text/code files to a question and export a conversation as Markdown.
+- Copy individual messages and regenerate the last response.
 - A fixed built-in calculator demo with known-good arithmetic that does not depend on AI-generated code.
 - Copy generated code with one click.
 - Stop a long-running local generation from the send button.
