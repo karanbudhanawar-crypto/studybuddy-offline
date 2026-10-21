@@ -42,7 +42,7 @@
 <section class="chat hidden" id="chatLog" aria-live="polite"></section><div class="thinking hidden" id="thinking">✦ Thinking on your device…</div>
 <footer class="composerwrap">
 <div class="composer-tools">
-<label for="modeSelect" class="sub">Mode</label><select id="modeSelect" class="mode-select" aria-label="Assistant mode"><option value="general">General assistant</option><option value="coding">Coding & debugging</option><option value="homework">Homework tutor</option><option value="exam">Exam answer</option><option value="advice">Advice & suggestions</option><option value="creative">Creative writing</option></select>
+<label for="modeSelect" class="sub">Mode</label><select id="modeSelect" class="mode-select" aria-label="Assistant mode" title="Advanced uses the custom studybuddy-advanced model when installed."><option value="general">General assistant</option><option value="advanced">Advanced — StudyBuddy model</option><option value="coding">Coding & debugging</option><option value="homework">Homework tutor</option><option value="exam">Exam answer</option><option value="advice">Advice & suggestions</option><option value="creative">Creative writing</option></select>
 <button type="button" class="tool-btn" id="attachBtn">📎 Attach text/code</button><input type="file" id="fileInput" class="file-hidden" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.html,.htm,.css,.json,.csv,.xml,.sql,.java,.c,.cpp,.h,.hpp,.yml,.yaml,.log,.sh">
 <button type="button" class="tool-btn" id="clearFilesBtn" hidden>Clear files</button><span class="file-list" id="fileList" aria-live="polite"></span>
 <button type="button" class="tool-btn" id="exportBtn">⇩ Export chat</button>
@@ -351,7 +351,8 @@ const MODE_INSTRUCTIONS={
  homework:"Teach the method step by step. Explain concepts in simple language, then give a structured answer the student can learn from.",
  exam:"Write exam-ready answers with a definition, numbered important points, and a brief conclusion. Respect the requested marks or length.",
  advice:"Give practical, balanced suggestions. Mention trade-offs and ask a clarifying question only when it is necessary.",
- creative:"Help with writing, story ideas, outlines, and revisions. Match the requested style and keep the result original."
+ creative:"Help with writing, story ideas, outlines, and revisions. Match the requested style and keep the result original.",
+ advanced:"Use a careful, structured, high-effort answer style. Identify requirements and assumptions, solve the task, and do a brief verification check before responding. For code, provide complete runnable code with imports, event handlers, error handling, run instructions, and a short checklist; never invent test results. For math, verify arithmetic and units. For homework, teach the steps before giving the answer. Use concise headings and mention important trade-offs. Do not reveal hidden private reasoning. State limitations honestly."
 };
 function makeChatId(){return 'chat-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)}
 function safeReadChats(){
@@ -388,7 +389,9 @@ function renderHistory(){
 }
 function systemPromptForMode(){
  const mode=$('modeSelect')?$('modeSelect').value:selectedMode;
- return SYSTEM+'\n\nResponse mode ('+mode+'): '+(MODE_INSTRUCTIONS[mode]||MODE_INSTRUCTIONS.general)+'\n\nDo not claim to have web access, image generation, file execution, or other tools unless available in this app. This is a local text model; if asked for live facts, explain that you cannot browse from here.';
+ const instructions=MODE_INSTRUCTIONS[mode]||MODE_INSTRUCTIONS.general;
+ const extra=mode==='advanced'?'\n\nAdvanced profile: prioritize correctness over speed, then provide a concise verification summary. You have no guaranteed web browsing, image understanding, code execution, or cloud tools.':'';
+ return SYSTEM+'\n\nResponse mode ('+mode+'): '+instructions+extra+'\n\nDo not claim to have web access, image generation, file execution, or other tools unless available in this app. This is a local text model; if asked for live facts, explain that you cannot browse from here.';
 }
 function updateFileLabel(){
  const names=pendingFiles.map(f=>f.name);
@@ -557,7 +560,28 @@ function addMessage(role,content){
  const groupId='study-message-'+(++messageCounter);text.innerHTML=markdown(content,groupId);
  b.append(h,text);a.append(av,b);$('chatLog').append(a);$('chatLog').scrollTop=$('chatLog').scrollHeight;
 }
-async function check(){status('Checking local AI…');try{const r=await fetchTimed(endpointNow()+'/api/tags',{},6000);if(!r.ok)throw Error('Ollama HTTP '+r.status);const d=await r.json();const models=(d.models||[]).map(x=>x.name).filter(Boolean);$('model').replaceChildren();(models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});if(models.includes(model))$('model').value=model;else if(models.length){model=models[0];$('model').value=model}status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);return models.length>0}catch(e){status('Local AI not connected','bad');toast('Connection failed: '+(e?.message||'browser blocked localhost access')+'. Check the browser Localhost/Local network permission and Ollama origins.');return false}}
+async function check(){
+ status('Checking local AI…');
+ try{
+  const r=await fetchTimed(endpointNow()+'/api/tags',{},6000);
+  if(!r.ok)throw Error('Ollama HTTP '+r.status);
+  const d=await r.json(),models=(d.models||[]).map(x=>x.name).filter(Boolean);
+  $('model').replaceChildren();
+  (models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});
+  if(selectedMode==='advanced'&&models.includes('studybuddy-advanced')){
+   model='studybuddy-advanced';$('model').value=model;localStorage.setItem('studybuddy.model',model);
+  }else if(models.includes(model))$('model').value=model;
+  else if(models.length){model=models[0];$('model').value=model}
+  status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');
+  if(selectedMode==='advanced'&&!models.includes('studybuddy-advanced'))toast('Advanced instructions are active. To install the custom model, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then click Check models.');
+  if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);
+  return models.length>0;
+ }catch(e){
+  status('Local AI not connected','bad');
+  toast('Connection failed: '+(e?.message||'browser blocked localhost access')+'. Check the browser Localhost/Local network permission and Ollama origins.');
+  return false;
+ }
+}
 function stopGeneration(){if(!busy||!requestController)return;stoppedByUser=true;status('Stopping generation…');$('sendBtn').disabled=true;requestController.abort()}
 async function send(text,options={}){
  const requestedText=String(text||'').trim();
@@ -678,7 +702,21 @@ $('calculatorDemoSidebar').addEventListener('click',showBuiltinCalculator);
 $('newBtn').addEventListener('click',reset);$('clearBtn').addEventListener('click',reset);$('settingsBtn').addEventListener('click',openSettings);$('settingsBtnMobile').addEventListener('click',openSettings);$('closeBtn').addEventListener('click',()=>$('settingsDialog').classList.add('hidden'));
 $('modeSelect').value=selectedMode;
 $('modeSelect').addEventListener('change',()=>{
+ const previous=selectedMode;
  selectedMode=$('modeSelect').value||'general';localStorage.setItem('studybuddy.mode',selectedMode);
+ if(selectedMode==='advanced'){
+  const installed=Array.from($('model').options).some(o=>o.value==='studybuddy-advanced');
+  if(installed){
+   if(model!=='studybuddy-advanced')localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
+   model='studybuddy-advanced';$('model').value=model;localStorage.setItem('studybuddy.model',model);
+   toast('Advanced mode is using studybuddy-advanced.');
+  }else{
+   toast('Advanced instructions enabled. To use the custom model too, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then open Connection settings and click Check models.');
+  }
+ }else if(previous==='advanced'&&model==='studybuddy-advanced'){
+  const preferred=localStorage.getItem('studybuddy.preAdvancedModel')||DEFAULT_MODEL;
+  if(Array.from($('model').options).some(o=>o.value===preferred)){$('model').value=preferred;model=preferred;localStorage.setItem('studybuddy.model',model)}
+ }
  if(currentChat()){currentChat().mode=selectedMode;persistConversation()}
 });
 $('attachBtn').addEventListener('click',()=>$('fileInput').click());
