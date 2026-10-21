@@ -52,40 +52,65 @@ function endpointNow(){return ($('endpoint').value||endpoint||DEFAULT_ENDPOINT).
 async function fetchTimed(url,opts={},ms=8000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{...opts,signal:c.signal,mode:'cors',targetAddressSpace:'loopback'})}finally{clearTimeout(t)}}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const codeSamples=new Map();
-let codeCounter=0;
-function markdown(s){
- const tick=String.fromCharCode(96), fence=tick.repeat(3);
+let codeCounter=0,messageCounter=0;
+function markdown(s,groupId){
+ const tick=String.fromCharCode(96),fence=tick.repeat(3);
  const chunks=s.split(new RegExp('('+fence+'[\\s\\S]*?'+fence+')','g'));
  return chunks.map(c=>{
   if(c.startsWith(fence)&&c.endsWith(fence)){
-   const inner=c.slice(3,-3), lineBreak=inner.indexOf('\n');
+   const inner=c.slice(3,-3),lineBreak=inner.indexOf('\n');
    const first=lineBreak<0?inner.trim():inner.slice(0,lineBreak).trim();
    const hasLang=!!first&&/^[a-zA-Z0-9_+.#-]{1,24}$/.test(first);
    const language=hasLang?first.toLowerCase():'text';
    const code=(hasLang&&lineBreak>=0?inner.slice(lineBreak+1):inner.replace(/^\n/,'')).replace(/\n$/,'');
    const id='study-code-'+(++codeCounter);
-   codeSamples.set(id,{language,code});
+   codeSamples.set(id,{language,code,groupId});
    return '<section class="code-card"><div class="code-toolbar"><span class="code-language">'+escapeHtml(language.toUpperCase())+'</span><div class="code-actions"><button type="button" class="code-action" data-code-action="copy" data-code-id="'+id+'">Copy code</button><button type="button" class="code-action code-preview-action" data-code-action="preview" data-code-id="'+id+'" aria-expanded="false">Preview</button></div></div><pre><code class="language-'+escapeHtml(language)+'">'+escapeHtml(code)+'</code></pre><div class="code-preview hidden" data-preview-panel="'+id+'"></div></section>';
   }
   return escapeHtml(c).replace(new RegExp(tick+'([^'+tick+'\\n]+)'+tick,'g'),'<code>$1</code>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
  }).join('');
 }
 const PREVIEW_CSP="<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; media-src data: blob:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'\">";
-function previewDocument(sample){
- const lang=sample.language, code=sample.code;
- if(['html','htm','xhtml'].includes(lang)){
-  if(/<head[\s>]/i.test(code))return code.replace(/<head([^>]*)>/i,'<head$1>'+PREVIEW_CSP);
-  if(/<html[\s>]/i.test(code))return code.replace(/<html([^>]*)>/i,'<html$1><head>'+PREVIEW_CSP+'</head>');
-  return '<!doctype html><html><head>'+PREVIEW_CSP+'</head><body>'+code+'</body></html>';
+function groupedCode(sample,related){
+ const all=(related||[sample]).filter(x=>x&&x.groupId===sample.groupId);
+ return all.length?all:[sample];
+}
+function buildPreviewDocument(sample,related){
+ const all=groupedCode(sample,related);
+ const htmlSample=all.find(x=>['html','htm','xhtml'].includes(x.language));
+ const svgSample=all.find(x=>x.language==='svg');
+ const css=all.filter(x=>x.language==='css').map(x=>x.code).join('\n\n');
+ const js=all.filter(x=>['js','javascript'].includes(x.language)).map(x=>x.code).join('\n;\n');
+ const cssTag=css?'<style>\n'+css+'\n</style>':'';
+ const jsTag=js?'<script>\n'+js+'\n</scr'+'ipt>':'';
+ if(htmlSample){
+  let doc=htmlSample.code;
+  if(/<html[\s>]/i.test(doc)){
+   if(/<head[\s>]/i.test(doc)){
+    if(/<\/head>/i.test(doc))doc=doc.replace(/<\/head>/i,PREVIEW_CSP+cssTag+'</head>');
+    else doc=doc.replace(/<head([^>]*)>/i,'<head$1>'+PREVIEW_CSP+cssTag);
+    if(jsTag){if(/<\/body>/i.test(doc))doc=doc.replace(/<\/body>/i,jsTag+'</body>');else doc+=jsTag;}
+   }else{
+    doc=doc.replace(/<html([^>]*)>/i,'<html$1><head>'+PREVIEW_CSP+cssTag+'</head>');
+    if(jsTag){if(/<\/body>/i.test(doc))doc=doc.replace(/<\/body>/i,jsTag+'</body>');else doc+=jsTag;}
+   }
+  }else{
+   doc='<!doctype html><html><head>'+PREVIEW_CSP+cssTag+'</head><body>'+doc+jsTag+'</body></html>';
+  }
+  return doc;
  }
- if(lang==='svg')return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>body{margin:0;padding:16px;background:#fff;color:#222;font:14px system-ui}svg{max-width:100%;max-height:520px}</style></head><body>'+code+'</body></html>';
- if(lang==='css')return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>'+code+'</style></head><body style="padding:20px"><main class="preview-demo"><h1>CSS preview</h1><p>This sample page lets you see the effect of your CSS.</p><button type="button">Example button</button><div class="card">Example card</div><input placeholder="Example input"></main></body></html>';
- if(['js','javascript'].includes(lang))return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>body{font:16px system-ui;padding:16px;color:#172033}.preview-shell{padding:16px;border:1px solid #ccd4e2;border-radius:10px}</style></head><body><main id="app" class="preview-shell"><h2>JavaScript preview</h2><p>Your script runs inside this isolated preview frame.</p></main><scr'+'ipt>'+code+'\n</scr'+'ipt></body></html>';
+ if(svgSample)return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>body{margin:0;padding:16px;background:#fff;color:#222;font:14px system-ui}svg{max-width:100%;max-height:520px}</style></head><body>'+svgSample.code+'</body></html>';
+ if(css){
+  return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>body{font:16px system-ui;padding:20px;color:#172033}'+css+'</style></head><body><main class="preview-demo"><h1>CSS preview</h1><p>Example paragraph</p><button type="button">Example button</button><div class="card">Example card</div><input placeholder="Example input"></main></body></html>';
+ }
+ if(js){
+  return '<!doctype html><html><head>'+PREVIEW_CSP+'<style>body{font:16px system-ui;padding:16px;color:#172033}.preview-shell{padding:16px;border:1px solid #ccd4e2;border-radius:10px}#preview-log{white-space:pre-wrap;background:#f1f4f8;padding:9px;border-radius:6px}</style></head><body><main id="app" class="preview-shell"><h2>JavaScript preview</h2><p>Your JavaScript is running in this isolated preview. If it expects a particular HTML interface, include that HTML code in the same answer for a complete preview.</p><pre id="preview-log"></pre></main><script>const logNode=document.getElementById("preview-log");const originalLog=console.log.bind(console);console.log=(...args)=>{originalLog(...args);if(logNode)logNode.textContent+=args.map(v=>typeof v==="object"?JSON.stringify(v):String(v)).join(" ")+"\\n";};\n'+js+'\n</scr'+'ipt></body></html>';
+ }
  return null;
 }
-function showCodePreview(panel,sample){
+function showCodePreview(panel,sample,related){
  panel.replaceChildren();
- const doc=previewDocument(sample);
+ const doc=buildPreviewDocument(sample,related);
  if(doc!==null){
   const iframe=document.createElement('iframe');
   iframe.className='code-preview-frame';
@@ -94,19 +119,17 @@ function showCodePreview(panel,sample){
   iframe.setAttribute('title','Isolated live code preview');
   iframe.srcdoc=doc;
   panel.append(iframe);
-  const help=document.createElement('div');help.className='preview-footnote';help.textContent='Live preview runs in an isolated sandbox. External network requests are blocked.';panel.append(help);
+  const help=document.createElement('div');help.className='preview-footnote';help.textContent='Preview combines related HTML, CSS, and JavaScript code blocks from this answer. It runs in an isolated sandbox with network requests blocked.';panel.append(help);
   return;
  }
  const note=document.createElement('div');note.className='preview-note';
  const title=document.createElement('strong');title.textContent='Preview is not executable in this browser for '+(sample.language||'this language').toUpperCase()+'.';
- const explanation=document.createElement('p');explanation.textContent='StudyBuddy can show the source code, but Python, Java, C/C++, SQL, and similar languages need their own runtime. Save the code to a file and run it in the appropriate local tool.';
+ const explanation=document.createElement('p');explanation.textContent='StudyBuddy can show and copy this source code, but Python, Java, C/C++, SQL, and similar languages need their own runtime. Save the code to a file and run it locally.';
  note.append(title,explanation);
- if(sample.language==='python'||sample.language==='py'){
-  const command=document.createElement('code');command.textContent='python main.py';note.append(command);
- }
+ if(sample.language==='python'||sample.language==='py'){const command=document.createElement('code');command.textContent='python main.py';note.append(command);}
  panel.append(note);
 }
-function addMessage(role,content){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');const a=document.createElement('article');a.className='message';const av=document.createElement('div');av.className='avatar';av.textContent=role==='user'?'Y':'✦';const b=document.createElement('div');b.className='messagebody';const h=document.createElement('div');h.className='messagehead';const n=document.createElement('span');n.textContent=role==='user'?'You':'StudyBuddy';const time=document.createElement('time');time.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});h.append(n,time);const text=document.createElement('div');text.className='messagecontent';text.innerHTML=markdown(content);b.append(h,text);a.append(av,b);$('chatLog').append(a);$('chatLog').scrollTop=$('chatLog').scrollHeight}
+function addMessage(role,content){$('welcome').classList.add('hidden');$('chatLog').classList.remove('hidden');const a=document.createElement('article');a.className='message';const av=document.createElement('div');av.className='avatar';av.textContent=role==='user'?'Y':'✦';const b=document.createElement('div');b.className='messagebody';const h=document.createElement('div');h.className='messagehead';const n=document.createElement('span');n.textContent=role==='user'?'You':'StudyBuddy';const time=document.createElement('time');time.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});h.append(n,time);const text=document.createElement('div');text.className='messagecontent';const groupId='study-message-'+(++messageCounter);text.innerHTML=markdown(content,groupId);b.append(h,text);a.append(av,b);$('chatLog').append(a);$('chatLog').scrollTop=$('chatLog').scrollHeight}
 async function check(){status('Checking local AI…');try{const r=await fetchTimed(endpointNow()+'/api/tags',{},6000);if(!r.ok)throw Error('Ollama HTTP '+r.status);const d=await r.json();const models=(d.models||[]).map(x=>x.name).filter(Boolean);$('model').replaceChildren();(models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});if(models.includes(model))$('model').value=model;else if(models.length){model=models[0];$('model').value=model}status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);return models.length>0}catch(e){status('Local AI not connected','bad');toast('Connection failed: '+(e?.message||'browser blocked localhost access')+'. Check the browser Localhost/Local network permission and Ollama origins.');return false}}
 async function send(text){text=text.trim();if(!text||busy)return;busy=true;$('sendBtn').disabled=true;$('prompt').disabled=true;addMessage('user',text);messages.push({role:'user',content:text});if(messages.length>18)messages=messages.slice(-18);$('thinking').classList.remove('hidden');status('Generating locally…','ok');try{const r=await fetchTimed(endpointNow()+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:$('model').value||model||DEFAULT_MODEL,messages:[{role:'system',content:SYSTEM},...messages],stream:false,options:{temperature:.45,num_ctx:4096}})},600000);if(!r.ok)throw Error('Ollama HTTP '+r.status+' '+(await r.text()).slice(0,250));const d=await r.json(),answer=d?.message?.content?.trim();if(!answer)throw Error('Empty answer from model');messages.push({role:'assistant',content:answer});addMessage('assistant',answer);status('Ready · generated locally','ok')}catch(e){messages.pop();let extra=e.name==='AbortError'?'Request timed out.':e.message||'Request failed.';extra+='\n\nCheck that Ollama is running and the model is installed. A hosted HTTPS page may also need local-network permission and the exact Render origin allowed in Ollama.';addMessage('assistant','I could not reach your local AI model.\n\n'+extra);status('Connection problem','bad')}finally{$('thinking').classList.add('hidden');busy=false;$('sendBtn').disabled=false;$('prompt').disabled=false;$('prompt').focus()}}
 function reset(){messages=[];$('chatLog').replaceChildren();$('chatLog').classList.add('hidden');$('welcome').classList.remove('hidden');$('prompt').focus()}
@@ -135,7 +158,8 @@ $('chatLog').addEventListener('click',async e=>{
   const panel=$('chatLog').querySelector('[data-preview-panel="'+btn.dataset.codeId+'"]');
   if(!panel)return;
   if(!panel.classList.contains('hidden')){panel.classList.add('hidden');panel.replaceChildren();btn.setAttribute('aria-expanded','false');btn.textContent='Preview';return}
-  showCodePreview(panel,sample);panel.classList.remove('hidden');btn.setAttribute('aria-expanded','true');btn.textContent='Hide preview';
+  const related=[...codeSamples.values()].filter(item=>item.groupId===sample.groupId);
+  showCodePreview(panel,sample,related);panel.classList.remove('hidden');btn.setAttribute('aria-expanded','true');btn.textContent='Hide preview';
  }
 });
 $('newBtn').addEventListener('click',reset);$('clearBtn').addEventListener('click',reset);$('settingsBtn').addEventListener('click',openSettings);$('settingsBtnMobile').addEventListener('click',openSettings);$('closeBtn').addEventListener('click',()=>$('settingsDialog').classList.add('hidden'));
