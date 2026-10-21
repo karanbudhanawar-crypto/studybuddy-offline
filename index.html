@@ -568,12 +568,13 @@ async function check(){
   const d=await r.json(),models=(d.models||[]).map(x=>x.name).filter(Boolean);
   $('model').replaceChildren();
   (models.length?models:[model||DEFAULT_MODEL]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;$('model').append(o)});
-  if(selectedMode==='advanced'&&models.includes('studybuddy-advanced')){
-   model='studybuddy-advanced';$('model').value=model;localStorage.setItem('studybuddy.model',model);
+  const advancedInstalled=models.find(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:'));
+  if(selectedMode==='advanced'&&advancedInstalled){
+   model=advancedInstalled;$('model').value=model;localStorage.setItem('studybuddy.model',model);
   }else if(models.includes(model))$('model').value=model;
   else if(models.length){model=models[0];$('model').value=model}
   status(models.length?'Local AI ready · '+models.length+' model(s)':'Ollama connected, no models found',models.length?'ok':'bad');
-  if(selectedMode==='advanced'&&!models.includes('studybuddy-advanced'))toast('Advanced instructions are active. To install the custom model, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then click Check models.');
+  if(selectedMode==='advanced'&&!models.some(m=>m==='studybuddy-advanced'||m.startsWith('studybuddy-advanced:')))toast('Advanced instructions are active. To install the custom model, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then click Check models.');
   if(!models.length)toast('Download a model with: ollama pull '+DEFAULT_MODEL);
   return models.length>0;
  }catch(e){
@@ -705,15 +706,16 @@ $('modeSelect').addEventListener('change',()=>{
  const previous=selectedMode;
  selectedMode=$('modeSelect').value||'general';localStorage.setItem('studybuddy.mode',selectedMode);
  if(selectedMode==='advanced'){
-  const installed=Array.from($('model').options).some(o=>o.value==='studybuddy-advanced');
-  if(installed){
+  const advancedOption=Array.from($('model').options).find(o=>o.value==='studybuddy-advanced'||o.value.startsWith('studybuddy-advanced:'));
+  if(advancedOption){
+   const advancedModelName=advancedOption.value;
    if(model!=='studybuddy-advanced')localStorage.setItem('studybuddy.preAdvancedModel',model||DEFAULT_MODEL);
-   model='studybuddy-advanced';$('model').value=model;localStorage.setItem('studybuddy.model',model);
+   model=advancedModelName;$('model').value=model;localStorage.setItem('studybuddy.model',model);
    toast('Advanced mode is using studybuddy-advanced.');
   }else{
    toast('Advanced instructions enabled. To use the custom model too, run CREATE_STUDYBUDDY_ADVANCED.bat from the GitHub project, then open Connection settings and click Check models.');
   }
- }else if(previous==='advanced'&&model==='studybuddy-advanced'){
+ }else if(previous==='advanced'&&model.startsWith('studybuddy-advanced')){
   const preferred=localStorage.getItem('studybuddy.preAdvancedModel')||DEFAULT_MODEL;
   if(Array.from($('model').options).some(o=>o.value===preferred)){$('model').value=preferred;model=preferred;localStorage.setItem('studybuddy.model',model)}
  }
