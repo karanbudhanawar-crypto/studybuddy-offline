@@ -1,67 +1,53 @@
 # StudyBuddy Offline AI Chatbot
 
-StudyBuddy is an installable student assistant for coding, homework, exam preparation, projects, and suggestions. It sends prompts directly from your browser to an AI model running locally through Ollama; this repository does not host a cloud AI model.
+StudyBuddy is a browser-based student assistant that uses an AI model running locally through Ollama. The site is hosted on Render; the model and prompts run on the user's computer.
 
 ## Live app
-
 https://studybuddy-offline.onrender.com
 
 ## Features
-- Student-friendly chat UI with coding, homework, exam, and project prompts.
-- Local chat history saved in the browser (reopen, rename, delete; stored on this device/browser).
-- Response modes: general, coding/debugging, homework tutor, exam answer, advice, and creative writing.
-- Attach text/code files to a question and export a conversation as Markdown.
-- Copy individual messages and regenerate the last response.
-- A fixed built-in HTML calculator and a Python/Tkinter calculator example that do not depend on AI-generated code.
-- Copy generated code with one click.
-- Stop a long-running local generation from the send button.
-- Local model responses are capped to keep small CPU-only computers responsive.
-- Live sandbox preview combines related HTML, CSS, and JavaScript blocks from one answer into a working demo; SVG snippets are also previewable. Python and desktop-language previews explain how to run code locally.
-- Connects to Ollama running on the same device.
-- Progressive Web App (PWA) install support and offline cache for the interface.
-- No paid cloud AI API key required.
+- Local chat history: reopen, rename, and delete conversations in this browser.
+- Response modes: general, Advanced, coding/debugging, homework, exam answers, advice, and creative writing.
+- Attach small text/code files and export chats as Markdown.
+- Copy messages and generated code; retry an answer or stop a long generation.
+- Sandboxed previews for HTML, CSS, JavaScript, and SVG.
+- Built-in working calculator and standalone Python/Tkinter calculator example.
+- No paid AI API key is required.
 
-## Important architecture note
-Render hosts the static interface, not the AI model. For AI replies, the device opening the website needs Ollama and a downloaded model. The UI can be cached and open offline after first load, but the browser still needs to reach local Ollama for replies. To run fully offline, keep the interface cached/served locally and run Ollama on that same device.
+## Important: what "StudyBuddy Advanced" means
+The **Advanced** mode is a custom local profile based on Qwen 2.5 1.5B. It applies StudyBuddy-specific instructions and conservative generation settings. It is **not Astra**, does not use Astra weights, and cannot gain frontier-model capabilities from prompts alone. Answer quality still depends on the underlying model, hardware, and task.
 
-## Windows setup
-1. Install Ollama: https://ollama.com/download/windows
-2. Open Command Prompt and download a small model: `ollama pull qwen2.5:1.5b-instruct`
-3. Start Ollama.
-4. Open StudyBuddy, select **Connection settings**, keep address `http://127.0.0.1:11434`, then click **Check models**.
-5. If the browser blocks requests from the hosted Render website, configure Ollama's allowed origins to include only the exact site origin `https://studybuddy-offline.onrender.com`, then fully restart Ollama. Do not use `*` for allowed origins. Browser local-network/CORS behavior may vary by browser/version.
+## Create the custom local model on Windows
+1. Download this repository using GitHub's **Code → Download ZIP** and extract it. Keep `Modelfile` and `CREATE_STUDYBUDDY_ADVANCED.bat` in the same extracted root folder.
+2. Ensure Ollama is installed and running: https://ollama.com/download/windows
+3. Double-click `CREATE_STUDYBUDDY_ADVANCED.bat`. It checks for the base model `qwen2.5:1.5b-instruct` and downloads it if missing, then creates the custom tag `studybuddy-advanced`.
+4. Open StudyBuddy, hard-refresh with Ctrl+Shift+R, select **Advanced — StudyBuddy model** in the response-mode picker, then open **Connection settings → Check models** if needed.
+5. Confirm `studybuddy-advanced` is selected as the model. If it is not installed, Advanced instructions still work with the currently selected local model.
 
-## Render deployment
-- Type: Static Site
-- Branch: `main`
-- Build command: `echo 'No build required'`
-- Publish directory: `.`
-- Auto deploy: enabled
+The custom tag reuses the base model weights and adds a system prompt and runtime defaults; it does not download an Astra model or add new learned knowledge.
 
-The site is automatically redeployed when new commits are pushed to `main`.
-
-## Run locally
-From the project folder run `python -m http.server 8000`, then open http://localhost:8000. For local Ollama calls, use `http://127.0.0.1:11434` in Connection settings.
-
-## Privacy
-Prompts are sent from your browser to the Ollama endpoint configured in the app. There is no server-side model or cloud database. Conversations remain in page memory for the current session; the chosen endpoint and model are stored in browser local storage.
-
-## Project files
-- `index.html` — app, styles, and chat logic
-- `manifest.webmanifest` — installable PWA settings
-- `service-worker.js` — offline cache for the interface
-- `icon.svg` — app icon
-
-## Python/Tkinter calculator example
-
-The app includes a built-in Python calculator source example under **Python calculator**. Its Preview button displays an interactive browser-based equivalent; the Tkinter program itself runs locally on Windows with Python installed.
-
+## Run the standalone Python calculator
+The file `examples/python_calculator.py` is a complete Tkinter desktop calculator. With Python installed, run from the repository folder:
 ```bat
 python examples/python_calculator.py
 ```
+The website's Preview is an interactive browser equivalent, not a browser execution of Python.
 
-A standalone source file is available in `examples/python_calculator.py`.
+## Offline and privacy notes
+- The interface can be cached after its first visit; AI responses need Ollama running on the same computer and a browser permission setup that allows the site to reach localhost.
+- Chat history, selected mode, model, and endpoint are stored in the browser's local storage. Text/code attachments are sent to the selected local Ollama endpoint when submitted.
+- There is no server-side model or cloud database in this static site.
+- Do not put passwords, API keys, or other secrets in prompts or attachments.
 
+## Render deployment
+- Static Site, branch `main`
+- Build command: `echo 'No build required'`
+- Publish directory: `.`
+- Auto-deploy is enabled for commits to `main`.
 
-### Use the built-in Python example in the website
-Open StudyBuddy and click **Python calculator**. The source appears in a Python code block with Copy code and Preview controls. The preview is an interactive browser equivalent; it does not execute Python in the browser.
+## Repository files
+- `index.html` — app, UI, chat logic, code previews and calculator demos
+- `Modelfile` — configuration for the custom StudyBuddy model
+- `CREATE_STUDYBUDDY_ADVANCED.bat` — Windows model creation helper
+- `examples/python_calculator.py` — standalone Python/Tkinter calculator
+- `manifest.webmanifest`, `service-worker.js`, `icon.svg` — installable PWA/offline shell
