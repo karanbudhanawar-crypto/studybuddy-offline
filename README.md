@@ -69,6 +69,6 @@ The app can submit PNG/JPG/WEBP images to compatible local vision models. The de
 
 ## Fine-tune StudyBuddy Advanced
 
-A starter LoRA fine-tuning pipeline lives in [`training/`](https://github.com/karanbudhanawar-crypto/studybuddy-offline/tree/main/training). It includes 81 synthetic supervised examples, a separate held-out evaluation set, training and GGUF export scripts, and a Colab notebook. The actual fine-tuning still needs to be run on a CUDA GPU; it has not been run by this repository update.
+The fine-tuning toolkit in [`training/`](https://github.com/karanbudhanawar-crypto/studybuddy-offline/tree/main/training) contains 81 synthetic supervised examples, a separate held-out evaluation set, a CPU-only LoRA path for Qwen3 0.6B, and an optional GPU path for Qwen3 1.7B. CPU training needs no T4, but is slow and requires adequate RAM, disk space, and C++ build tools for model export. The model has not yet been trained by this repository update.
 
-Start here: [Open the fine-tuning notebook in Google Colab](https://colab.research.google.com/github/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb).
+For your laptop, start with [`training/TRAIN_ON_LAPTOP_CPU.bat`](https://github.com/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/TRAIN_ON_LAPTOP_CPU.bat). For the optional GPU path, [open the fine-tuning notebook in Google Colab](https://colab.research.google.com/github/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb).
