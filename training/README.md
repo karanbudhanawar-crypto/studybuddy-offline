@@ -3,6 +3,7 @@
 This directory contains a real supervised fine-tuning (SFT) workflow for a **LoRA adapter** on `Qwen/Qwen3-1.7B`. It is intended for a CUDA GPU notebook such as Google Colab when a GPU is available. It will not train usefully on the user's Ryzen/AMD low-VRAM laptop; use that laptop to run the quantized model after training.
 
 ## What's included
+- `validate_dataset.py`: checks JSONL format, duplicate prompts, and exact prompt overlap between training/evaluation files.
 - `train.jsonl`: curated synthetic starter examples for coding, computer science homework, exam answers, problem solving, and honest uncertainty.
 - `eval.jsonl`: held-out examples used for evaluation loss; they are not included in training.
 - `train_lora.py`: LoRA supervised fine-tuning using Transformers, TRL, Datasets, and PEFT.
@@ -10,7 +11,7 @@ This directory contains a real supervised fine-tuning (SFT) workflow for a **LoR
 - `StudyBuddy_Advanced_Finetune.ipynb`: click-open notebook flow for a CUDA GPU runtime.
 
 ## Recommended path
-1. Open [the notebook on GitHub](https://github.com/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb) and click **Open in Colab** (or download the notebook and upload it to Colab).
+1. Open [StudyBuddy Advanced Fine-Tuning in Google Colab](https://colab.research.google.com/github/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb). If direct opening does not work, download the notebook from [GitHub](https://github.com/karanbudhanawar-crypto/studybuddy-offline/blob/main/training/StudyBuddy_Advanced_Finetune.ipynb) and upload it to Colab.
 2. In Colab choose `Runtime → Change runtime type → T4 GPU` if offered. Free compute availability and limits vary; a GPU is not guaranteed.
 3. Run cells in order. The script trains 3 epochs using max sequence length 1024, saves a LoRA adapter, evaluates on `eval.jsonl`, and merges the adapter back into the original-precision model.
 4. Download `studybuddy-advanced-import.zip` from the last cell.
