@@ -22,10 +22,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-ollama show qwen2.5:1.5b-instruct >nul 2>&1
+ollama show qwen3:1.7b >nul 2>&1
 if errorlevel 1 (
   echo The base model is missing. It will be downloaded now.
-  ollama pull qwen2.5:1.5b-instruct
+  ollama pull qwen3:1.7b
   if errorlevel 1 (
     echo ERROR: Could not download the base model.
     pause
